@@ -80,7 +80,7 @@ const SchedulePage = ({ homework, commitments, schedule, setSchedule }) => {
             <h5>📱 How to Import:</h5>
             <ol className="mb-0">
               <li className="mb-2">Click "Export to Calendar" to download the .ics file</li>
-              <li className="mb-2"><strong>iPhone/iPad:</strong> Open the file, tap "Add All" to import to Apple Calendar</li>
+              <li className="mb-2"><strong>iOS:</strong> Open the file, tap "Add All" to import to Apple Calendar</li>
               <li className="mb-2"><strong>Android:</strong> Open the file with Google Calendar app</li>
               <li><strong>Desktop:</strong> Import the .ics file into your calendar app (Calendar, Outlook, etc.)</li>
             </ol>

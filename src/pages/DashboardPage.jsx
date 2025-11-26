@@ -1,6 +1,7 @@
 import React from 'react';
 import { Row, Col } from 'react-bootstrap';
 import Card from '../components/Card';
+import Button from '../components/Button';
 
 const DashboardPage = ({ homework, commitments, schedule }) => {
   const upcomingDeadlines = [...homework]
@@ -10,9 +11,23 @@ const DashboardPage = ({ homework, commitments, schedule }) => {
   const totalHours = homework.reduce((sum, hw) => sum + parseFloat(hw.hours || 0), 0);
   const scheduledHours = schedule.reduce((sum, session) => sum + session.duration, 0);
   
+  const handleClearAllData = () => {
+    if (window.confirm('Are you sure you want to clear all homework, commitments, and schedule data? This cannot be undone.')) {
+      localStorage.removeItem('studysync-homework');
+      localStorage.removeItem('studysync-commitments');
+      localStorage.removeItem('studysync-schedule');
+      window.location.reload(); // Reload to reset state
+    }
+  };
+  
   return (
     <div>
-      <h1 className="mb-4">📊 Dashboard</h1>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1>📊 Dashboard</h1>
+        <Button onClick={handleClearAllData} variant="outline-danger" className="btn-sm">
+          🗑️ Clear All Data
+        </Button>
+      </div>
       
       <Row className="mb-4">
         <Col md={4} className="mb-3">
