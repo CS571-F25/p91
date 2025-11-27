@@ -80,7 +80,6 @@ const HomeworkPage = ({ homework, setHomework, commitments, setCommitments }) =>
     return colors[day];
   };
 
-  // Group commitments by description and time
   const groupedCommitments = commitments.reduce((acc, commitment) => {
     const key = `${commitment.startTime}-${commitment.endTime}-${commitment.description}`;
     if (!acc[key]) {
@@ -177,10 +176,9 @@ const HomeworkPage = ({ homework, setHomework, commitments, setCommitments }) =>
         <Col lg={6} className="mb-4">
           <Card>
             <h4 className="mb-3">📅 Add Existing Commitment</h4>
-            
             <Form.Group className="mb-3">
               <Form.Label>Days of Week</Form.Label>
-              <div className="d-flex flex-wrap gap-2">
+              <div className="d-flex flex-wrap gap-2 justify-content-center">
                 {daysOfWeek.map(day => (
                   <React.Fragment key={day}>
                     <Form.Check
@@ -194,14 +192,14 @@ const HomeworkPage = ({ homework, setHomework, commitments, setCommitments }) =>
                     <label
                       htmlFor={`day-${day}`}
                       className={`btn ${commitmentForm.days.includes(day) ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
-                      style={{ cursor: 'pointer', minWidth: '45px' }}
+                      style={{ cursor: 'pointer', minWidth: '45px'}}
                     >
                       {getDayAbbr(day)}
                     </label>
                   </React.Fragment>
                 ))}
               </div>
-              <Form.Text className="text-muted">
+              <Form.Text className="text-muted" fontSize="12px">
                 Select multiple days (e.g., MWF for Monday, Wednesday, Friday)
               </Form.Text>
             </Form.Group>
@@ -224,7 +222,7 @@ const HomeworkPage = ({ homework, setHomework, commitments, setCommitments }) =>
               onChange={(e) => setCommitmentForm({...commitmentForm, description: e.target.value})}
               placeholder="e.g., Math class"
             />
-            <Button 
+            <Button
               onClick={addCommitment} 
               variant="primary" 
               className="w-100"
@@ -278,7 +276,6 @@ const HomeworkPage = ({ homework, setHomework, commitments, setCommitments }) =>
                         </div>
                         <button
                           onClick={() => {
-                            // Delete all commitments in this group
                             setCommitments(commitments.filter(c => !group.ids.includes(c.id)));
                           }}
                           className="btn btn-sm btn-outline-danger"

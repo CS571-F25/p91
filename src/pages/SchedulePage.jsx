@@ -1,14 +1,16 @@
-import React from 'react';
-import { Row, Col } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Row, Col, Alert } from 'react-bootstrap';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { generateSchedule, generateICS, formatTime } from '../utils/scheduleGenerator';
 
 const SchedulePage = ({ homework, commitments, schedule, setSchedule }) => {
+  const [warnings, setWarnings] = useState([]);
   
   const handleGenerateSchedule = () => {
-    const newSchedule = generateSchedule(homework, commitments);
-    setSchedule(newSchedule);
+    const result = generateSchedule(homework, commitments);
+    setSchedule(result.schedule);
+    setWarnings(result.warnings);
   };
   
   const handleExport = () => {
@@ -38,8 +40,35 @@ const SchedulePage = ({ homework, commitments, schedule, setSchedule }) => {
           )}
         </div>
       </div>
+
+      {warnings.length > 0 && (
+        <Alert variant="warning" className="mb-4">
+          <Alert.Heading>⚠️ Scheduling Warnings</Alert.Heading>
+          {warnings.map((warning, idx) => (
+            <div key={idx} className="mb-2">
+              <strong>{warning.homework}:</strong>
+              <br />
+              {warning.available !== undefined ? (
+                <span>
+                  Needs {warning.needed}h but only {warning.available.toFixed(1)}h available before deadline.
+                  {warning.available > 0 && ' Scheduled as much as possible.'}
+                </span>
+              ) : (
+                <span>
+                  Only scheduled {warning.scheduled.toFixed(1)}h of {warning.needed}h. 
+                  {warning.remaining.toFixed(1)}h could not fit before the deadline.
+                </span>
+              )}
+            </div>
+          ))}
+          <hr />
+          <small className="text-muted">
+            💡 Tip: Try extending the deadline, reducing homework hours, or clearing some commitments to make more time available.
+          </small>
+        </Alert>
+      )}
       
-      {schedule.length === 0 ? (
+      {schedule.length === 0 && warnings.length === 0 && (
         <Card>
           <div className="text-center py-5">
             <div style={{ fontSize: '4rem' }}>📅</div>
@@ -47,7 +76,19 @@ const SchedulePage = ({ homework, commitments, schedule, setSchedule }) => {
             <p className="text-muted small">Add homework and commitments, then click "Generate Schedule"</p>
           </div>
         </Card>
-      ) : (
+      )}
+
+      {schedule.length === 0 && warnings.length > 0 && (
+        <Card>
+          <div className="text-center py-5">
+            <div style={{ fontSize: '4rem' }}>⚠️</div>
+            <p className="text-muted mb-2">Could not create a schedule</p>
+            <p className="text-muted small">See warnings above for details</p>
+          </div>
+        </Card>
+      )}
+
+      {schedule.length > 0 && (
         <>
           <Row>
             {days.map(day => (

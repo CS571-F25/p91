@@ -24,6 +24,10 @@
   z-index: 1000;
 }
 
+.card.flex-fill {
+  flex: 1 1 300px;
+}
+
 @keyframes logo-spin {
   from {
     transform: rotate(0deg);

@@ -9,7 +9,7 @@ import SchedulePage from './pages/SchedulePage'
 import NavigationBar from './components/NavigationBar'
 
 function App() {
-  // Load data from localStorage on initial mount
+  // Load data from localStorage
   const [homework, setHomework] = useState(() => {
     const saved = localStorage.getItem('studysync-homework');
     return saved ? JSON.parse(saved) : [];
@@ -25,17 +25,17 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Save homework to localStorage whenever it changes
+  // Save homework to localStorage
   useEffect(() => {
     localStorage.setItem('studysync-homework', JSON.stringify(homework));
   }, [homework]);
 
-  // Save commitments to localStorage whenever it changes
+  // Save commitments to localStorage
   useEffect(() => {
     localStorage.setItem('studysync-commitments', JSON.stringify(commitments));
   }, [commitments]);
 
-  // Save schedule to localStorage whenever it changes
+  // Save schedule to localStorage
   useEffect(() => {
     localStorage.setItem('studysync-schedule', JSON.stringify(schedule));
   }, [schedule]);
