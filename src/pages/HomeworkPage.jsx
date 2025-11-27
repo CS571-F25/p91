@@ -101,11 +101,10 @@ const HomeworkPage = ({ homework, setHomework, commitments, setCommitments }) =>
   return (
     <div>
       <h1 className="mb-4">📚 Manage Homework & Commitments</h1>
-      
       <Row>
         <Col lg={6} className="mb-4">
           <Card>
-            <h4 className="mb-3">➕ Add Homework</h4>
+            <h4 className="mb-3">➕ Add Homework or Study Session</h4>
             <Input 
               label="Assignment Name"
               value={hwForm.name}
@@ -127,25 +126,22 @@ const HomeworkPage = ({ homework, setHomework, commitments, setCommitments }) =>
               value={hwForm.deadline}
               onChange={(e) => setHwForm({...hwForm, deadline: e.target.value})}
             />
-            <Form.Group className="mb-3">
-              <Form.Label>Preferred Block Size (hours)</Form.Label>
-              <Form.Select 
-                value={hwForm.blockSize}
-                onChange={(e) => setHwForm({...hwForm, blockSize: e.target.value})}
-              >
-                <option value="1">1 hour</option>
-                <option value="1.5">1.5 hours</option>
-                <option value="2">2 hours</option>
-                <option value="3">3 hours</option>
-              </Form.Select>
-            </Form.Group>
+            <Input
+              label="Preferred Block Size (hours)"
+              type="number"
+              step="0.5"
+              min="0.5"
+              value={hwForm.blockSize}
+              onChange={(e) => setHwForm({ ...hwForm, blockSize: e.target.value })}
+              placeholder="e.g., 1.5"
+            />
             <Button onClick={addHomework} variant="success" className="w-100">
               ➕ Add Homework
             </Button>
             
             {homework.length > 0 && (
               <div className="mt-4">
-                <h5 className="mb-3">📝 Current Homework</h5>
+                <h5 className="mb-3">📝 Current Homework/Study Session</h5>
                 <div className="d-flex flex-column gap-2">
                   {homework.map((hw) => (
                     <div key={hw.id} className="d-flex justify-content-between align-items-center p-3 border rounded shadow-sm bg-white">

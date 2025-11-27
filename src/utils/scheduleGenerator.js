@@ -30,7 +30,7 @@ export const generateSchedule = (homework, commitments) => {
     let tempDate = new Date(currentDate);
     let tempDayIndex = 0;
     
-    while (tempDate <= deadline && tempDayIndex < 100) {
+    while (tempDate <= deadline && tempDayIndex < 365) {
       const dayName = days[tempDayIndex % 7];
       const busyTimes = [...commitmentsByDay[dayName]].sort((a, b) => a.start - b.start);
       
@@ -45,9 +45,7 @@ export const generateSchedule = (homework, commitments) => {
       
       totalAvailableHours += availableInDay;
       tempDayIndex++;
-      if (tempDayIndex % 7 === 0) {
-        tempDate.setDate(tempDate.getDate() + 7);
-      }
+      tempDate.setDate(currentDate.getDate() + tempDayIndex);
     }
     
     // Check if there's enough time
@@ -66,6 +64,14 @@ export const generateSchedule = (homework, commitments) => {
       const dayName = days[dayIndex % 7];
       const hoursToSchedule = Math.min(remainingHours, blockSize);
       
+      // Get the actual calendar date for this iteration
+      const scheduleDate = new Date(currentDate);
+      const daysToAdd = dayIndex % 7;
+      scheduleDate.setDate(currentDate.getDate() + Math.floor(dayIndex / 7) * 7 + daysToAdd);
+      
+      // Stop if we've passed the deadline
+      if (scheduleDate > deadline) break;
+      
       const busyTimes = [...commitmentsByDay[dayName]].sort((a, b) => a.start - b.start);
       let searchStart = workingHours.start;
       let scheduled = false;
@@ -80,7 +86,7 @@ export const generateSchedule = (homework, commitments) => {
             day: dayName,
             startTime: searchStart,
             duration: hoursToSchedule,
-            date: new Date(currentDate)
+            date: new Date(scheduleDate)
           });
           
           commitmentsByDay[dayName].push({
@@ -98,11 +104,8 @@ export const generateSchedule = (homework, commitments) => {
       }
       
       dayIndex++;
-      if (dayIndex % 7 === 0) {
-        currentDate.setDate(currentDate.getDate() + 7);
-      }
       
-      if (dayIndex > 100) break; // Safety limit
+      if (dayIndex > 365) break; // Safety limit (1 year)
     }
     
     // If we couldn't schedule all the hours, add a warning
@@ -138,17 +141,22 @@ X-WR-CALDESC:Your personalized homework schedule
 `;
 
   schedule.forEach((session, idx) => {
-    const startDate = new Date(session.date);
+    // Create a fresh date object for this session
+    const startDate = new Date(session.date.getTime());
     const startHour = Math.floor(session.startTime);
     const startMinute = Math.round((session.startTime - startHour) * 60);
     startDate.setHours(startHour, startMinute, 0, 0);
     
-    const endDate = new Date(startDate);
-    endDate.setMinutes(endDate.getMinutes() + session.duration * 60);
+    // Create end date from start date
+    const endDate = new Date(startDate.getTime());
+    endDate.setMinutes(endDate.getMinutes() + Math.round(session.duration * 60));
     
     const formatDate = (date) => {
       return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
+    
+    // Generate unique UID using timestamp and random number
+    const uid = `${startDate.getTime()}-${Math.random().toString(36).substr(2, 9)}@studysync.app`;
     
     icsContent += `BEGIN:VEVENT
 DTSTART:${formatDate(startDate)}
@@ -157,14 +165,17 @@ SUMMARY:${session.homework}
 DESCRIPTION:Study session for ${session.homework}
 STATUS:CONFIRMED
 SEQUENCE:0
-UID:${Date.now()}-${idx}@studysync.app
+UID:${uid}
 END:VEVENT
 `;
   });
   
   icsContent += 'END:VCALENDAR';
   
-  const blob = new Blob([icsContent], { type: 'text/calendar' });
+  // Clean up whitespace in ICS content
+  icsContent = icsContent.replace(/^\s+/gm, '');
+  
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
