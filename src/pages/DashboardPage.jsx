@@ -16,7 +16,7 @@ const DashboardPage = ({ homework, commitments, schedule }) => {
       localStorage.removeItem('studysync-homework');
       localStorage.removeItem('studysync-commitments');
       localStorage.removeItem('studysync-schedule');
-      window.location.reload(); // Reload to reset state
+      window.location.reload();
     }
   };
   

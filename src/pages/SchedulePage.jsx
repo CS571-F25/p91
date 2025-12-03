@@ -9,7 +9,9 @@ export default function SchedulePage({
   setSchedule,
   commitments
 }) {
+  const defaultColor = "#0d6efd";
   const [selectedHomeworkId, setSelectedHomeworkId] = useState("");
+  const [calendarRange, setCalendarRange] = useState({ start: null, end: null });
 
   const sidebarRef = useRef(null);
   const draggableInitRef = useRef(false);
@@ -19,15 +21,22 @@ export default function SchedulePage({
 
   const formatTime = (t) => (t && t.length === 5 ? t : null);
 
-  const homeworkEvents = schedule.map((s) => ({
-    id: (s.id ?? Date.now() + Math.random()).toString(),
-    title: s.homework,
-    start: s.start,
-    end: s.end,
-    backgroundColor: "#0d6efd",
-    borderColor: "#0a58ca",
-    editable: true
-  }));
+  const homeworkEvents = schedule.map((s) => {
+    const color =
+      s.color ||
+      homework.find((h) => h.name === s.homework)?.color ||
+      defaultColor;
+
+    return {
+      id: (s.id ?? Date.now() + Math.random()).toString(),
+      title: s.homework,
+      start: s.start,
+      end: s.end,
+      backgroundColor: color,
+      borderColor: color,
+      editable: true
+    };
+  });
 
   const dayToIndex = {
     Sunday: 0,
@@ -60,6 +69,13 @@ export default function SchedulePage({
 
   const events = [...homeworkEvents, ...commitmentEvents];
 
+  const getDeadlineForHomework = (homeworkName) => {
+    const hw = homework.find((h) => h.name === homeworkName);
+    if (!hw || !hw.deadline) return null;
+
+    return new Date(hw.deadline + "T23:59:59");
+  };
+
   useEffect(() => {
     if (sidebarRef.current && !draggableInitRef.current) {
       draggableInitRef.current = true;
@@ -68,6 +84,8 @@ export default function SchedulePage({
         itemSelector: ".draggable-block",
         eventData: (el) => ({
           title: el.getAttribute("data-title"),
+          backgroundColor: el.getAttribute("data-color"),
+          borderColor: el.getAttribute("data-color"),
           duration: {
             hours: parseFloat(el.getAttribute("data-block-size"))
           }
@@ -86,15 +104,65 @@ export default function SchedulePage({
     const start = info.event.start;
     const end = new Date(start.getTime() + blockSize * 60 * 60 * 1000);
 
+    const deadline = getDeadlineForHomework(selectedHomework.name);
+    if (deadline && start > deadline) return;
+
     setSchedule((prev) => [
       ...prev,
       {
         id: Date.now() + Math.random(),
         homework: selectedHomework.name,
         start,
-        end
+        end,
+        color: selectedHomework.color || defaultColor
       }
     ]);
+  };
+
+  const handleEventDrop = (info) => {
+    if (info.event.id.startsWith("commit-")) {
+      info.revert();
+      return;
+    }
+
+    const deadline = getDeadlineForHomework(info.event.title);
+    const endDate = info.event.end || info.event.start;
+
+    if (deadline && endDate > deadline) {
+      info.revert();
+      return;
+    }
+
+    setSchedule((prev) =>
+      prev.map((ev) =>
+        (ev.id ?? "").toString() === info.event.id.toString()
+          ? { ...ev, start: info.event.start, end: info.event.end }
+          : ev
+      )
+    );
+  };
+
+  const handleEventResize = (info) => {
+    if (info.event.id.startsWith("commit-")) {
+      info.revert();
+      return;
+    }
+
+    const deadline = getDeadlineForHomework(info.event.title);
+    const endDate = info.event.end || info.event.start;
+
+    if (deadline && endDate > deadline) {
+      info.revert();
+      return;
+    }
+
+    setSchedule((prev) =>
+      prev.map((ev) =>
+        (ev.id ?? "").toString() === info.event.id.toString()
+          ? { ...ev, start: info.event.start, end: info.event.end }
+          : ev
+      )
+    );
   };
 
   const handleDeleteEvent = (event) => {
@@ -108,6 +176,8 @@ export default function SchedulePage({
   };
 
   const renderEventContent = (info) => {
+    if (info.event.display === "background") return null;
+
     const isCommitment = info.event.id.startsWith("commit-");
 
     return (
@@ -143,6 +213,32 @@ export default function SchedulePage({
     blocksRemaining = Math.max(0, blocksNeeded - blocksScheduled);
   }
 
+  const deadlineShading = [];
+  if (selectedHomework && selectedHomework.deadline && calendarRange.end) {
+    const deadlineEnd = getDeadlineForHomework(selectedHomework.name);
+    const shadeStart = new Date(deadlineEnd.getTime() + 1000);
+
+    if (shadeStart < calendarRange.end) {
+      deadlineShading.push({
+        id: "deadline-bg",
+        start: shadeStart,
+        end: calendarRange.end,
+        display: "background",
+        backgroundColor: "rgba(220, 53, 69, 0.2)",
+        borderColor: "rgba(220, 53, 69, 0.5)"
+      });
+    }
+  }
+
+  const allEvents = [...events, ...deadlineShading];
+
+  const isWithinDeadline = (start, end, title) => {
+    const deadline = getDeadlineForHomework(title);
+    if (!deadline) return true;
+    const comparisonEnd = end || start;
+    return comparisonEnd <= deadline;
+  };
+
   return (
     <div className="row">
       <div className="col-12 col-md-3 border-end p-3" ref={sidebarRef}>
@@ -168,16 +264,31 @@ export default function SchedulePage({
               <strong>Block Size:</strong> {selectedHomework.blockSize}h
             </div>
 
+            <div className="mb-2">
+              <strong>Deadline:</strong>{" "}
+              {selectedHomework.deadline
+                ? new Date(
+                    selectedHomework.deadline + "T12:00:00"
+                  ).toLocaleDateString()
+                : "No deadline set"}
+            </div>
+
             <div className="mb-3">
               <strong>Blocks Remaining:</strong> {blocksRemaining}
             </div>
 
             {blocksRemaining > 0 && (
               <div
-                className="p-3 bg-primary text-white rounded draggable-block"
+                className="p-3 text-white rounded draggable-block"
                 data-title={selectedHomework.name}
                 data-block-size={selectedHomework.blockSize}
-                style={{ cursor: "grab", userSelect: "none" }}
+                data-color={selectedHomework.color || defaultColor}
+                style={{
+                  cursor: "grab",
+                  userSelect: "none",
+                  backgroundColor: selectedHomework.color || defaultColor,
+                  border: "1px solid rgba(0,0,0,0.1)"
+                }}
               >
                 Drag Block:
                 <br />
@@ -208,9 +319,15 @@ export default function SchedulePage({
           initialView="timeGridWeek"
           droppable={true}
           editable={true}
-          events={events}
+          events={allEvents}
           eventReceive={handleEventReceive}
+          eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
           eventContent={renderEventContent}
+          eventAllow={(dropInfo, draggedEvent) =>
+            isWithinDeadline(dropInfo.start, dropInfo.end, draggedEvent.title)
+          }
+          datesSet={(arg) => setCalendarRange({ start: arg.start, end: arg.end })}
           eventOverlap={false}
           slotMinTime="06:00:00"
           height="auto"

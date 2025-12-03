@@ -2,8 +2,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
   const newSchedule = [];
   const warnings = [];
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  
-  // Use prefs or defaults
   const workingHours = {
     start: prefs && prefs.startTime ? parseFloat(prefs.startTime.split(':')[0]) + parseFloat(prefs.startTime.split(':')[1]) / 60 : 8,
     end: prefs && prefs.endTime ? parseFloat(prefs.endTime.split(':')[0]) + parseFloat(prefs.endTime.split(':')[1]) / 60 : 22
@@ -15,36 +13,30 @@ export const generateSchedule = (homework, commitments, prefs) => {
   console.log('Working hours:', workingHours);
   console.log('Homework to schedule:', homework.map(hw => ({ name: hw.name, hours: hw.hours, deadline: hw.deadline })));
 
-  // Create commitments by actual date
   const commitmentsByDate = {};
-  
-  // Helper function to get day name from date
+
   const getDayName = (date) => {
     return days[date.getDay() === 0 ? 6 : date.getDay() - 1];
   };
 
-  // Helper function to get date key (YYYY-MM-DD)
   const getDateKey = (date) => {
     return date.toISOString().split('T')[0];
   };
 
-  // Initialize commitments for each date from today to max deadline
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
   console.log('Today:', today.toDateString());
   
-  // Find max deadline to know how far to initialize
   let maxDeadline = new Date(today);
   homework.forEach(hw => {
     const deadline = new Date(hw.deadline);
-    deadline.setHours(23, 59, 59, 999); // Set to end of deadline day
+    deadline.setHours(23, 59, 59, 999);
     if (deadline > maxDeadline) maxDeadline = deadline;
   });
   
   console.log('Max deadline (end of day):', maxDeadline.toDateString());
   
-  // Initialize empty commitments for each date
   let currentDate = new Date(today);
   while (currentDate <= maxDeadline) {
     const dateKey = getDateKey(currentDate);
@@ -52,7 +44,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  // Add recurring commitments to each applicable date
   commitments.forEach(c => {
     let currentDate = new Date(today);
     while (currentDate <= maxDeadline) {
@@ -64,7 +55,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
         
         commitmentsByDate[dateKey].push({ start, end, type: 'commitment', name: c.description });
         
-        // Add buffer time after commitments
         if (bufferTime > 0 && end + bufferTime <= workingHours.end) {
           commitmentsByDate[dateKey].push({
             start: end,
@@ -78,7 +68,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
     }
   });
   
-  // Add breaks to each date
   if (prefs && prefs.breaks && Array.isArray(prefs.breaks)) {
     let currentDate = new Date(today);
     while (currentDate <= maxDeadline) {
@@ -102,7 +91,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
     }
   }
   
-  // Sort all commitments by start time for each date
   Object.keys(commitmentsByDate).forEach(dateKey => {
     commitmentsByDate[dateKey].sort((a, b) => a.start - b.start);
   });
@@ -113,7 +101,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
     let remainingHours = parseFloat(hw.hours);
     const blockSize = parseFloat(hw.blockSize);
     
-    // Set deadline to END of the due date (23:59:59)
     const deadline = new Date(hw.deadline);
     deadline.setHours(23, 59, 59, 999);
     
@@ -124,11 +111,9 @@ export const generateSchedule = (homework, commitments, prefs) => {
     console.log('Due date:', hw.deadline);
     console.log('Deadline (end of day):', deadline.toDateString(), deadline.toTimeString());
     
-    // Calculate available hours from today through the deadline day (inclusive)
     let totalAvailableHours = 0;
     let checkDate = new Date(today);
     
-    // Schedule through AND INCLUDING the deadline day
     while (checkDate <= deadline) {
       const dateKey = getDateKey(checkDate);
       const busyTimes = commitmentsByDate[dateKey] || [];
@@ -148,7 +133,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
     
     console.log('Total available hours before deadline:', totalAvailableHours.toFixed(1));
     
-    // Check if there's enough time
     if (totalAvailableHours < originalHours) {
       warnings.push({
         homework: hw.name,
@@ -158,7 +142,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
       });
     }
     
-    // Schedule the homework starting from today through the deadline day (inclusive)
     let currentDate = new Date(today);
     let scheduledSessions = 0;
     
@@ -187,7 +170,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
           
           console.log(`  ✓ Scheduled ${hoursToSchedule}h on ${sessionDate.toDateString()} at ${formatTime(searchStart)}`);
           
-          // Add this study session as a commitment to prevent overlap
           commitmentsByDate[dateKey].push({
             start: searchStart,
             end: searchStart + hoursToSchedule,
@@ -204,7 +186,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
         searchStart = i < busyTimes.length ? busyTimes[i].end : searchEnd;
       }
       
-      // Move to next day
       currentDate.setDate(currentDate.getDate() + 1);
     }
     
@@ -221,7 +202,6 @@ export const generateSchedule = (homework, commitments, prefs) => {
     }
   });
 
-  // Sort schedule by date and time
   newSchedule.sort((a, b) => {
     const dateCompare = a.date.getTime() - b.date.getTime();
     if (dateCompare !== 0) return dateCompare;
@@ -254,13 +234,11 @@ X-WR-CALDESC:Your personalized homework schedule
 `;
 
   schedule.forEach((session, idx) => {
-    // Create a fresh date object for this session
     const startDate = new Date(session.date.getTime());
     const startHour = Math.floor(session.startTime);
     const startMinute = Math.round((session.startTime - startHour) * 60);
     startDate.setHours(startHour, startMinute, 0, 0);
     
-    // Create end date from start date
     const endDate = new Date(startDate.getTime());
     endDate.setMinutes(endDate.getMinutes() + Math.round(session.duration * 60));
     
@@ -268,7 +246,6 @@ X-WR-CALDESC:Your personalized homework schedule
       return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
     
-    // Generate unique UID using timestamp and random number
     const uid = `${startDate.getTime()}-${Math.random().toString(36).substr(2, 9)}@studysync.app`;
     
     icsContent += `BEGIN:VEVENT
@@ -285,7 +262,6 @@ END:VEVENT
   
   icsContent += 'END:VCALENDAR';
   
-  // Clean up whitespace in ICS content
   icsContent = icsContent.replace(/^\s+/gm, '');
   
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });

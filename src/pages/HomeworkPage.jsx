@@ -13,11 +13,22 @@ const HomeworkPage = ({
   setSchedule
 }) => {
 
+  const presetColors = [
+    '#0d6efd',
+    '#6f42c1',
+    '#20c997',
+    '#ffc107',
+    '#fd7e14',
+    '#dc3545',
+    '#198754'
+  ];
+
   const [hwForm, setHwForm] = useState({
     name: '',
     hours: '',
     deadline: '',
-    blockSize: '2'
+    blockSize: '2',
+    color: '#0d6efd'
   });
 
   const [commitmentForm, setCommitmentForm] = useState({
@@ -32,7 +43,6 @@ const HomeworkPage = ({
     'Friday', 'Saturday', 'Sunday'
   ];
 
-  // ADD HOMEWORK
   const addHomework = () => {
     if (!hwForm.name || !hwForm.hours || !hwForm.deadline) return;
 
@@ -41,7 +51,8 @@ const HomeworkPage = ({
       name: hwForm.name,
       hours: hwForm.hours,
       deadline: hwForm.deadline,
-      blockSize: hwForm.blockSize
+      blockSize: hwForm.blockSize,
+      color: hwForm.color || '#0d6efd'
     };
 
     setHomework(prev => [...prev, newHW]);
@@ -50,11 +61,26 @@ const HomeworkPage = ({
       name: '',
       hours: '',
       deadline: '',
-      blockSize: '2'
+      blockSize: '2',
+      color: '#0d6efd'
     });
   };
 
-  // DELETE HOMEWORK + ITS SCHEDULED BLOCKS
+  const updateHomeworkColor = (id, newColor) => {
+    setHomework(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, color: newColor } : item
+      )
+    );
+    setSchedule(prev =>
+      prev.map(ev =>
+        ev.homework === homework.find(h => h.id === id)?.name
+          ? { ...ev, color: newColor }
+          : ev
+      )
+    );
+  };
+
   const deleteHomework = (id) => {
     const hw = homework.find(h => h.id === id);
     if (!hw) return;
@@ -62,8 +88,6 @@ const HomeworkPage = ({
     setHomework(prev => prev.filter(h => h.id !== id));
     setSchedule(prev => prev.filter(ev => ev.homework !== hw.name));
   };
-
-  // ---------------- COMMITMENT LOGIC (unchanged) ----------------
 
   const handleDayToggle = (day) => {
     setCommitmentForm(prev => ({
@@ -176,6 +200,56 @@ const HomeworkPage = ({
               onChange={(e) => setHwForm({ ...hwForm, blockSize: e.target.value })}
             />
 
+            <div className="mb-3">
+              <label className="form-label">Block Color</label>
+              <div className="d-flex align-items-center justify-content-center gap-2 flex-wrap">
+                {presetColors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setHwForm({ ...hwForm, color })}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '6px',
+                      border: hwForm.color === color ? '2px solid #000' : '1px solid #ccc',
+                      backgroundColor: color,
+                      cursor: 'pointer'
+                    }}
+                    aria-label={`Choose color ${color}`}
+                  />
+                ))}
+                <div style={{ position: 'relative', width: '40px', height: '32px' }}>
+                  <button
+                    type="button"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '6px',
+                      border: '1px solid #ccc',
+                      background: '#fff',
+                      cursor: 'pointer'
+                    }}
+                    aria-label="Custom color"
+                  >
+                    🎨
+                  </button>
+                  <input
+                    type="color"
+                    value={hwForm.color}
+                    onChange={(e) => setHwForm({ ...hwForm, color: e.target.value })}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      opacity: 0,
+                      cursor: 'pointer'
+                    }}
+                    aria-label="Custom color"
+                  />
+                </div>
+              </div>
+            </div>
+
             <Button onClick={addHomework} className="w-100 mt-2">
               Add Homework
             </Button>
@@ -200,6 +274,48 @@ const HomeworkPage = ({
                           ? new Date(hw.deadline + "T12:00:00").toLocaleDateString()
                           : ""
                       }
+                      </div>
+                      <div className="d-flex align-items-center gap-2 mt-2">
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: "26px",
+                            height: "26px",
+                            borderRadius: "6px",
+                            border: "1px solid #ccc",
+                            backgroundColor: hw.color || "#0d6efd"
+                          }}
+                          aria-label={`${hw.name} color swatch`}
+                        />
+                        <div style={{ position: 'relative', width: '34px', height: '26px' }}>
+                          <button
+                            type="button"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              borderRadius: '6px',
+                              border: '1px solid #ccc',
+                              background: '#fff',
+                              cursor: 'pointer',
+                              padding: 0
+                            }}
+                            aria-label={`Change color for ${hw.name}`}
+                          >
+                            🎨
+                          </button>
+                          <input
+                            type="color"
+                            value={hw.color || "#0d6efd"}
+                            onChange={(e) => updateHomeworkColor(hw.id, e.target.value)}
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              opacity: 0,
+                              cursor: 'pointer'
+                            }}
+                            aria-label={`Custom color for ${hw.name}`}
+                          />
+                        </div>
                       </div>
                     </div>
 
