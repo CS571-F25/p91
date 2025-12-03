@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Row, Col, Form, Badge } from 'react-bootstrap';
+import { Row, Col, Form, Badge, Modal } from 'react-bootstrap';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -30,6 +30,16 @@ const HomeworkPage = ({
     blockSize: '2',
     color: '#0d6efd'
   });
+
+  const [editHomeworkId, setEditHomeworkId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    hours: '',
+    deadline: '',
+    blockSize: '',
+    color: '#0d6efd'
+  });
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const [commitmentForm, setCommitmentForm] = useState({
     days: [],
@@ -81,6 +91,61 @@ const HomeworkPage = ({
     );
   };
 
+  const startEditingHomework = (hw) => {
+    setEditHomeworkId(hw.id);
+    setEditForm({
+      name: hw.name || '',
+      hours: hw.hours || '',
+      deadline: hw.deadline || '',
+      blockSize: hw.blockSize || '',
+      color: hw.color || '#0d6efd'
+    });
+    setShowEditModal(true);
+  };
+
+  const cancelEditing = () => {
+    setEditHomeworkId(null);
+    setShowEditModal(false);
+    setEditForm({
+      name: '',
+      hours: '',
+      deadline: '',
+      blockSize: '',
+      color: '#0d6efd'
+    });
+  };
+
+  const saveHomeworkEdits = () => {
+    if (!editHomeworkId) return;
+    if (!editForm.name || !editForm.hours || !editForm.deadline) return;
+
+    const original = homework.find((h) => h.id === editHomeworkId);
+    if (!original) return;
+
+    const updated = {
+      ...original,
+      name: editForm.name,
+      hours: editForm.hours,
+      deadline: editForm.deadline,
+      blockSize: editForm.blockSize || original.blockSize,
+      color: editForm.color || original.color || '#0d6efd'
+    };
+
+    setHomework((prev) =>
+      prev.map((h) => (h.id === editHomeworkId ? updated : h))
+    );
+
+    setSchedule((prev) =>
+      prev.map((ev) =>
+        ev.homework === original.name
+          ? { ...ev, homework: updated.name, color: updated.color }
+          : ev
+      )
+    );
+
+    cancelEditing();
+  };
+
   const deleteHomework = (id) => {
     const hw = homework.find(h => h.id === id);
     if (!hw) return;
@@ -123,6 +188,8 @@ const HomeworkPage = ({
   const deleteCommitment = (id) => {
     setCommitments(prev => prev.filter(c => c.id !== id));
   };
+
+  const currentEditingHomework = homework.find((h) => h.id === editHomeworkId);
 
   const getDayAbbr = (day) => {
     const abbr = {
@@ -263,7 +330,7 @@ const HomeworkPage = ({
                     key={hw.id}
                     className="p-3 border rounded d-flex justify-content-between align-items-center mt-2 shadow-sm bg-white"
                   >
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <strong>{hw.name}</strong>
                       <div className="text-muted">
                         {hw.hours}h total — {hw.blockSize}h blocks
@@ -324,6 +391,12 @@ const HomeworkPage = ({
                       onClick={() => deleteHomework(hw.id)}
                     >
                       🗑️
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-secondary ms-2"
+                      onClick={() => startEditingHomework(hw)}
+                    >
+                      ✏️ Edit
                     </button>
                   </div>
                 ))}
@@ -443,6 +516,57 @@ const HomeworkPage = ({
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        show={!!editHomeworkId}
+        onHide={cancelEditing}
+        centered
+        backdrop="static"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Homework</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Input
+            label="Assignment Name"
+            value={editForm.name}
+            onChange={(e) =>
+              setEditForm((prev) => ({ ...prev, name: e.target.value }))
+            }
+          />
+          <Input
+            label="Total Hours Needed"
+            type="number"
+            value={editForm.hours}
+            onChange={(e) =>
+              setEditForm((prev) => ({ ...prev, hours: e.target.value }))
+            }
+          />
+          <Input
+            label="Deadline"
+            type="date"
+            value={editForm.deadline}
+            onChange={(e) =>
+              setEditForm((prev) => ({ ...prev, deadline: e.target.value }))
+            }
+          />
+          <Input
+            label="Block Size (hours)"
+            type="number"
+            step="0.5"
+            value={editForm.blockSize}
+            onChange={(e) =>
+              setEditForm((prev) => ({ ...prev, blockSize: e.target.value }))
+            }
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={cancelEditing}>
+            Cancel
+          </Button>
+          <Button onClick={saveHomeworkEdits}>Save</Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

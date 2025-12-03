@@ -10,16 +10,31 @@ export default function SchedulePage({
   commitments
 }) {
   const defaultColor = "#0d6efd";
-  const [selectedHomeworkId, setSelectedHomeworkId] = useState("");
   const [calendarRange, setCalendarRange] = useState({ start: null, end: null });
+  const [shadedHomework, setShadedHomework] = useState(null);
 
   const sidebarRef = useRef(null);
   const draggableInitRef = useRef(false);
 
-  const selectedHomework =
-    homework.find((h) => h.id.toString() === selectedHomeworkId) || null;
-
   const formatTime = (t) => (t && t.length === 5 ? t : null);
+  const getEventHours = (ev) => {
+    if (!ev.start || !ev.end) return 0;
+    return (
+      (new Date(ev.end).getTime() - new Date(ev.start).getTime()) /
+      (1000 * 60 * 60)
+    );
+  };
+
+  const getScheduledHours = (homeworkName) =>
+    schedule
+      .filter((ev) => ev.homework === homeworkName)
+      .reduce((sum, ev) => sum + getEventHours(ev), 0);
+
+  const getRemainingHours = (hw) => {
+    const totalHours = parseFloat(hw.hours || 0);
+    const scheduledHours = getScheduledHours(hw.name);
+    return Math.max(0, totalHours - scheduledHours);
+  };
 
   const homeworkEvents = schedule.map((s) => {
     const color =
@@ -86,6 +101,12 @@ export default function SchedulePage({
           title: el.getAttribute("data-title"),
           backgroundColor: el.getAttribute("data-color"),
           borderColor: el.getAttribute("data-color"),
+          extendedProps: {
+            homeworkId: el.getAttribute("data-homework-id"),
+            homeworkName: el.getAttribute("data-title"),
+            blockSize: parseFloat(el.getAttribute("data-block-size")),
+            color: el.getAttribute("data-color")
+          },
           duration: {
             hours: parseFloat(el.getAttribute("data-block-size"))
           }
@@ -95,26 +116,39 @@ export default function SchedulePage({
   }, []);
 
   const handleEventReceive = (info) => {
-    if (!selectedHomework) return;
+    const hwName =
+      info.event.extendedProps.homeworkName || info.event.title || "";
+    const hwColor = info.event.extendedProps.color || defaultColor;
+    const baseBlockSize =
+      parseFloat(
+        info.event.extendedProps.blockSize || info.event.duration?.hours
+      ) || 1;
 
-    const blockSize = parseFloat(selectedHomework.blockSize);
+    const hw = homework.find((h) => h.name === hwName);
+    const remainingHours = hw ? getRemainingHours(hw) : baseBlockSize;
+    if (!remainingHours || remainingHours <= 0) {
+      info.event.remove();
+      return;
+    }
+
+    const hoursToSchedule = Math.min(baseBlockSize, remainingHours);
 
     info.event.remove();
 
     const start = info.event.start;
-    const end = new Date(start.getTime() + blockSize * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + hoursToSchedule * 60 * 60 * 1000);
 
-    const deadline = getDeadlineForHomework(selectedHomework.name);
+    const deadline = getDeadlineForHomework(hwName);
     if (deadline && start > deadline) return;
 
     setSchedule((prev) => [
       ...prev,
       {
         id: Date.now() + Math.random(),
-        homework: selectedHomework.name,
+        homework: hwName,
         start,
         end,
-        color: selectedHomework.color || defaultColor
+        color: hwColor
       }
     ]);
   };
@@ -200,33 +234,26 @@ export default function SchedulePage({
     );
   };
 
-  let blocksRemaining = 0;
-  if (selectedHomework) {
-    const totalHours = parseFloat(selectedHomework.hours);
-    const blockSize = parseFloat(selectedHomework.blockSize);
-
-    const blocksNeeded = Math.ceil(totalHours / blockSize);
-    const blocksScheduled = schedule.filter(
-      (ev) => ev.homework === selectedHomework.name
-    ).length;
-
-    blocksRemaining = Math.max(0, blocksNeeded - blocksScheduled);
-  }
+  const formatDeadline = (deadline) =>
+    deadline ? new Date(deadline + "T12:00:00").toLocaleDateString() : "No deadline";
 
   const deadlineShading = [];
-  if (selectedHomework && selectedHomework.deadline && calendarRange.end) {
-    const deadlineEnd = getDeadlineForHomework(selectedHomework.name);
-    const shadeStart = new Date(deadlineEnd.getTime() + 1000);
+  if (shadedHomework && calendarRange.end) {
+    const hw = homework.find((h) => h.name === shadedHomework);
+    if (hw && hw.deadline) {
+      const deadlineEnd = getDeadlineForHomework(hw.name);
+      const shadeStart = new Date(deadlineEnd.getTime() + 1000);
 
-    if (shadeStart < calendarRange.end) {
-      deadlineShading.push({
-        id: "deadline-bg",
-        start: shadeStart,
-        end: calendarRange.end,
-        display: "background",
-        backgroundColor: "rgba(220, 53, 69, 0.2)",
-        borderColor: "rgba(220, 53, 69, 0.5)"
-      });
+      if (shadeStart < calendarRange.end) {
+        deadlineShading.push({
+          id: "deadline-bg",
+          start: shadeStart,
+          end: calendarRange.end,
+          display: "background",
+          backgroundColor: "rgba(220, 53, 69, 0.2)",
+          borderColor: "rgba(220, 53, 69, 0.5)"
+        });
+      }
     }
   }
 
@@ -244,66 +271,69 @@ export default function SchedulePage({
       <div className="col-12 col-md-3 border-end p-3" ref={sidebarRef}>
         <h4 className="mb-3">Plan Homework</h4>
 
-        <label className="form-label fw-bold">Select Homework</label>
-        <select
-          className="form-select mb-3"
-          value={selectedHomeworkId}
-          onChange={(e) => setSelectedHomeworkId(e.target.value)}
-        >
-          <option value="">-- Choose Homework --</option>
-          {homework.map((hw) => (
-            <option key={hw.id} value={hw.id}>
-              {hw.name} ({hw.hours}h total)
-            </option>
-          ))}
-        </select>
-
-        {selectedHomework && (
-          <>
-            <div className="mb-2">
-              <strong>Block Size:</strong> {selectedHomework.blockSize}h
-            </div>
-
-            <div className="mb-2">
-              <strong>Deadline:</strong>{" "}
-              {selectedHomework.deadline
-                ? new Date(
-                    selectedHomework.deadline + "T12:00:00"
-                  ).toLocaleDateString()
-                : "No deadline set"}
-            </div>
-
-            <div className="mb-3">
-              <strong>Blocks Remaining:</strong> {blocksRemaining}
-            </div>
-
-            {blocksRemaining > 0 && (
-              <div
-                className="p-3 text-white rounded draggable-block"
-                data-title={selectedHomework.name}
-                data-block-size={selectedHomework.blockSize}
-                data-color={selectedHomework.color || defaultColor}
-                style={{
-                  cursor: "grab",
-                  userSelect: "none",
-                  backgroundColor: selectedHomework.color || defaultColor,
-                  border: "1px solid rgba(0,0,0,0.1)"
-                }}
-              >
-                Drag Block:
-                <br />
-                <strong>{selectedHomework.name}</strong>
-                <br />({selectedHomework.blockSize}h)
-              </div>
-            )}
-
-            {blocksRemaining === 0 && (
-              <div className="text-success fw-bold">
-                🎉 All blocks scheduled!
-              </div>
-            )}
-          </>
+        {homework.length === 0 && (
+          <div className="text-muted">Add homework to start planning.</div>
         )}
+
+        {homework.map((hw) => {
+          const remainingHours = getRemainingHours(hw);
+          const blockSize = parseFloat(hw.blockSize || 1) || 1;
+          const nextBlockHours =
+            remainingHours > 0 ? Math.min(blockSize, remainingHours) : blockSize;
+          return (
+            <div
+              key={hw.id}
+              className="p-3 mb-3 rounded border"
+              onMouseEnter={() => setShadedHomework(hw.name)}
+              onMouseLeave={() => setShadedHomework(null)}
+            >
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <div className="fw-bold">{hw.name}</div>
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    backgroundColor: hw.color || defaultColor
+                  }}
+                  aria-label={`${hw.name} color`}
+                />
+              </div>
+              <div className="small text-muted">
+                {hw.hours}h total • {hw.blockSize}h blocks
+              </div>
+              <div className="small text-muted">
+                Deadline: {formatDeadline(hw.deadline)}
+              </div>
+              <div className="small mb-2">
+                Hours remaining: <strong>{remainingHours.toFixed(1)}h</strong>
+              </div>
+
+              {remainingHours > 0 ? (
+                <div
+                  className="p-2 text-white rounded draggable-block"
+                  data-title={hw.name}
+                  data-block-size={nextBlockHours}
+                  data-color={hw.color || defaultColor}
+                  data-homework-id={hw.id}
+                  style={{
+                    cursor: "grab",
+                    userSelect: "none",
+                    backgroundColor: hw.color || defaultColor,
+                    border: "1px solid rgba(0,0,0,0.1)"
+                  }}
+                  onMouseDown={() => setShadedHomework(hw.name)}
+                >
+                  Drag Block ({nextBlockHours}h)
+                </div>
+              ) : (
+                <div className="text-success fw-bold">🎉 All blocks scheduled!</div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div
@@ -319,6 +349,8 @@ export default function SchedulePage({
           initialView="timeGridWeek"
           droppable={true}
           editable={true}
+          eventDurationEditable={true}
+          eventResizableFromStart={true}
           events={allEvents}
           eventReceive={handleEventReceive}
           eventDrop={handleEventDrop}
