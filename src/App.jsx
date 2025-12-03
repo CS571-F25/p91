@@ -1,99 +1,87 @@
-import { HashRouter, Route, Routes } from 'react-router'
-import { useState, useEffect } from 'react'
-import './App.css'
-import Home from './components/Home'
-import AboutMe from './components/AboutMe'
-import DashboardPage from './pages/DashboardPage'
-import HomeworkPage from './pages/HomeworkPage'
-import SchedulePage from './pages/SchedulePage'
-import NavigationBar from './components/NavigationBar'
+import React, { useState, useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
+
+import Home from "./components/Home";
+import AboutMe from "./components/AboutMe";
+import SchedulePage from "./pages/SchedulePage";
+import HomeworkPage from "./pages/HomeworkPage";
+import DashboardPage from "./pages/DashboardPage";
+import NavigationBar from "./components/NavigationBar";
+import "./App.css";
 
 function App() {
-  // Load data from localStorage
   const [homework, setHomework] = useState(() => {
-    const saved = localStorage.getItem('studysync-homework');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [commitments, setCommitments] = useState(() => {
-    const saved = localStorage.getItem('studysync-commitments');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [schedule, setSchedule] = useState(() => {
-    const saved = localStorage.getItem('studysync-schedule');
-    return saved ? JSON.parse(saved) : [];
+    const stored = localStorage.getItem("studysync-homework");
+    return stored ? JSON.parse(stored) : [];
   });
 
-  // Save homework to localStorage
+  const [schedule, setSchedule] = useState(() => {
+    const stored = localStorage.getItem("studysync-schedule");
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  const [commitments, setCommitments] = useState(() => {
+    const stored = localStorage.getItem("studysync-commitments");
+    return stored ? JSON.parse(stored) : [];
+  });
+
   useEffect(() => {
-    localStorage.setItem('studysync-homework', JSON.stringify(homework));
+    localStorage.setItem("studysync-homework", JSON.stringify(homework));
   }, [homework]);
 
-  // Save commitments to localStorage
   useEffect(() => {
-    localStorage.setItem('studysync-commitments', JSON.stringify(commitments));
-  }, [commitments]);
-
-  // Save schedule to localStorage
-  useEffect(() => {
-    localStorage.setItem('studysync-schedule', JSON.stringify(schedule));
+    localStorage.setItem("studysync-schedule", JSON.stringify(schedule));
   }, [schedule]);
 
+  useEffect(() => {
+    localStorage.setItem("studysync-commitments", JSON.stringify(commitments));
+  }, [commitments]);
+
   return (
-    <HashRouter>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <NavigationBar />
-        <div
-          className="container-fluid"
-          style={{
-            maxWidth: '1400px',
-            flexGrow: 1,
-            overflowY: 'auto',
-            paddingTop: '80px',
-            paddingBottom: '2rem',
-          }}
-        >
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<AboutMe />} />
-            <Route
-              path="/dashboard"
-              element={
-                <DashboardPage
-                  homework={homework}
-                  commitments={commitments}
-                  schedule={schedule}
-                />
-              }
-            />
-            <Route
-              path="/homework"
-              element={
-                <HomeworkPage
-                  homework={homework}
-                  setHomework={setHomework}
-                  commitments={commitments}
-                  setCommitments={setCommitments}
-                />
-              }
-            />
-            <Route
-              path="/schedule"
-              element={
-                <SchedulePage
-                  homework={homework}
-                  commitments={commitments}
-                  schedule={schedule}
-                  setSchedule={setSchedule}
-                />
-              }
-            />
-          </Routes>
-        </div>
+    <>
+      <NavigationBar />
+      <div className="container mt-4">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<AboutMe />} />
+          <Route
+            path="/dashboard"
+            element={
+              <DashboardPage
+                homework={homework}
+                commitments={commitments}
+                schedule={schedule}
+              />
+            }
+          />
+          <Route
+            path="/schedule"
+            element={
+              <SchedulePage
+                homework={homework}
+                schedule={schedule}
+                setSchedule={setSchedule}
+                commitments={commitments}
+              />
+            }
+          />
+          <Route
+            path="/homework"
+            element={
+              <HomeworkPage
+                homework={homework}
+                setHomework={setHomework}
+                commitments={commitments}
+                setCommitments={setCommitments}
+                schedule={schedule}
+                setSchedule={setSchedule}
+              />
+            }
+          />
+        </Routes>
       </div>
-    </HashRouter>
-  );  
+    </>
+  );
 }
 
 export default App;

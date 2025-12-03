@@ -1,135 +1,221 @@
-import React, { useState } from 'react';
-import { Row, Col, Alert } from 'react-bootstrap';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import { generateSchedule, generateICS, formatTime } from '../utils/scheduleGenerator';
+import React, { useState, useEffect, useRef } from "react";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 
-const SchedulePage = ({ homework, commitments, schedule, setSchedule }) => {
-  const [warnings, setWarnings] = useState([]);
-  
-  const handleGenerateSchedule = () => {
-    const result = generateSchedule(homework, commitments);
-    setSchedule(result.schedule);
-    setWarnings(result.warnings);
+export default function SchedulePage({
+  homework,
+  schedule,
+  setSchedule,
+  commitments
+}) {
+  const [selectedHomeworkId, setSelectedHomeworkId] = useState("");
+
+  const sidebarRef = useRef(null);
+  const draggableInitRef = useRef(false);
+
+  const selectedHomework =
+    homework.find((h) => h.id.toString() === selectedHomeworkId) || null;
+
+  const formatTime = (t) => (t && t.length === 5 ? t : null);
+
+  const homeworkEvents = schedule.map((s) => ({
+    id: (s.id ?? Date.now() + Math.random()).toString(),
+    title: s.homework,
+    start: s.start,
+    end: s.end,
+    backgroundColor: "#0d6efd",
+    borderColor: "#0a58ca",
+    editable: true
+  }));
+
+  const dayToIndex = {
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6
   };
-  
-  const handleExport = () => {
-    generateICS(schedule);
+
+  const commitmentEvents = (commitments || [])
+    .filter(
+      (c) =>
+        c.day &&
+        dayToIndex[c.day] !== undefined &&
+        formatTime(c.startTime) &&
+        formatTime(c.endTime)
+    )
+    .map((c) => ({
+      id: "commit-" + c.id,
+      title: c.description || "Commitment",
+      daysOfWeek: [dayToIndex[c.day]],
+      startTime: formatTime(c.startTime),
+      endTime: formatTime(c.endTime),
+      backgroundColor: "#6c757d",
+      borderColor: "#495057",
+      editable: false
+    }));
+
+  const events = [...homeworkEvents, ...commitmentEvents];
+
+  useEffect(() => {
+    if (sidebarRef.current && !draggableInitRef.current) {
+      draggableInitRef.current = true;
+
+      new Draggable(sidebarRef.current, {
+        itemSelector: ".draggable-block",
+        eventData: (el) => ({
+          title: el.getAttribute("data-title"),
+          duration: {
+            hours: parseFloat(el.getAttribute("data-block-size"))
+          }
+        })
+      });
+    }
+  }, []);
+
+  const handleEventReceive = (info) => {
+    if (!selectedHomework) return;
+
+    const blockSize = parseFloat(selectedHomework.blockSize);
+
+    info.event.remove();
+
+    const start = info.event.start;
+    const end = new Date(start.getTime() + blockSize * 60 * 60 * 1000);
+
+    setSchedule((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        homework: selectedHomework.name,
+        start,
+        end
+      }
+    ]);
   };
-  
-  const groupedSchedule = schedule.reduce((acc, session) => {
-    if (!acc[session.day]) acc[session.day] = [];
-    acc[session.day].push(session);
-    return acc;
-  }, {});
-  
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  
+
+  const handleDeleteEvent = (event) => {
+    if (event.id.startsWith("commit-")) return;
+
+    event.remove();
+
+    setSchedule((prev) =>
+      prev.filter((ev) => (ev.id ?? "").toString() !== event.id.toString())
+    );
+  };
+
+  const renderEventContent = (info) => {
+    const isCommitment = info.event.id.startsWith("commit-");
+
+    return (
+      <div className="d-flex justify-content-between align-items-center w-100">
+        <span>{info.event.title}</span>
+
+        {!isCommitment && (
+          <span
+            className="text-danger ms-2"
+            style={{ cursor: "pointer", fontSize: "1.2rem" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteEvent(info.event);
+            }}
+          >
+            🗑️
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  let blocksRemaining = 0;
+  if (selectedHomework) {
+    const totalHours = parseFloat(selectedHomework.hours);
+    const blockSize = parseFloat(selectedHomework.blockSize);
+
+    const blocksNeeded = Math.ceil(totalHours / blockSize);
+    const blocksScheduled = schedule.filter(
+      (ev) => ev.homework === selectedHomework.name
+    ).length;
+
+    blocksRemaining = Math.max(0, blocksNeeded - blocksScheduled);
+  }
+
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>🗓️ Your Study Schedule</h1>
-        <div className="d-flex gap-2">
-          <Button onClick={handleGenerateSchedule} variant="primary">
-            ⚡ Generate Schedule
-          </Button>
-          {schedule.length > 0 && (
-            <Button onClick={handleExport} variant="success">
-              📥 Export to Calendar
-            </Button>
-          )}
-        </div>
+    <div className="row">
+      <div className="col-12 col-md-3 border-end p-3" ref={sidebarRef}>
+        <h4 className="mb-3">Plan Homework</h4>
+
+        <label className="form-label fw-bold">Select Homework</label>
+        <select
+          className="form-select mb-3"
+          value={selectedHomeworkId}
+          onChange={(e) => setSelectedHomeworkId(e.target.value)}
+        >
+          <option value="">-- Choose Homework --</option>
+          {homework.map((hw) => (
+            <option key={hw.id} value={hw.id}>
+              {hw.name} ({hw.hours}h total)
+            </option>
+          ))}
+        </select>
+
+        {selectedHomework && (
+          <>
+            <div className="mb-2">
+              <strong>Block Size:</strong> {selectedHomework.blockSize}h
+            </div>
+
+            <div className="mb-3">
+              <strong>Blocks Remaining:</strong> {blocksRemaining}
+            </div>
+
+            {blocksRemaining > 0 && (
+              <div
+                className="p-3 bg-primary text-white rounded draggable-block"
+                data-title={selectedHomework.name}
+                data-block-size={selectedHomework.blockSize}
+                style={{ cursor: "grab", userSelect: "none" }}
+              >
+                Drag Block:
+                <br />
+                <strong>{selectedHomework.name}</strong>
+                <br />({selectedHomework.blockSize}h)
+              </div>
+            )}
+
+            {blocksRemaining === 0 && (
+              <div className="text-success fw-bold">
+                🎉 All blocks scheduled!
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      {warnings.length > 0 && (
-        <Alert variant="warning" className="mb-4">
-          <Alert.Heading>⚠️ Scheduling Warnings</Alert.Heading>
-          {warnings.map((warning, idx) => (
-            <div key={idx} className="mb-2">
-              <strong>{warning.homework}:</strong>
-              <br />
-              {warning.available !== undefined ? (
-                <span>
-                  Needs {warning.needed}h but only {warning.available.toFixed(1)}h available before deadline.
-                  {warning.available > 0 && ' Scheduled as much as possible.'}
-                </span>
-              ) : (
-                <span>
-                  Only scheduled {warning.scheduled.toFixed(1)}h of {warning.needed}h. 
-                  {warning.remaining.toFixed(1)}h could not fit before the deadline.
-                </span>
-              )}
-            </div>
-          ))}
-          <hr />
-          <small className="text-muted">
-            💡 Tip: Try extending the deadline, reducing homework hours, or clearing some commitments to make more time available.
-          </small>
-        </Alert>
-      )}
-      
-      {schedule.length === 0 && warnings.length === 0 && (
-        <Card>
-          <div className="text-center py-5">
-            <div style={{ fontSize: '4rem' }}>📅</div>
-            <p className="text-muted mb-2">No schedule generated yet</p>
-            <p className="text-muted small">Add homework and commitments, then click "Generate Schedule"</p>
-          </div>
-        </Card>
-      )}
-
-      {schedule.length === 0 && warnings.length > 0 && (
-        <Card>
-          <div className="text-center py-5">
-            <div style={{ fontSize: '4rem' }}>⚠️</div>
-            <p className="text-muted mb-2">Could not create a schedule</p>
-            <p className="text-muted small">See warnings above for details</p>
-          </div>
-        </Card>
-      )}
-
-      {schedule.length > 0 && (
-        <>
-          <Row>
-            {days.map(day => (
-              <Col key={day} md={6} lg={4} className="mb-3">
-                <Card className={groupedSchedule[day] ? '' : 'opacity-50'}>
-                  <h5 className="text-primary mb-3">{day}</h5>
-                  {groupedSchedule[day] ? (
-                    <div>
-                      {groupedSchedule[day]
-                        .sort((a, b) => a.startTime - b.startTime)
-                        .map((session, idx) => (
-                        <div key={idx} className="border-start border-primary border-4 bg-light p-3 rounded mb-2">
-                          <p className="fw-bold mb-1 small">{session.homework}</p>
-                          <p className="text-muted mb-1" style={{fontSize: '0.75rem'}}>
-                            {formatTime(session.startTime)} - {formatTime(session.startTime + session.duration)}
-                          </p>
-                          <span className="badge bg-primary">{session.duration} hour{session.duration !== 1 ? 's' : ''}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted small">No sessions scheduled</p>
-                  )}
-                </Card>
-              </Col>
-            ))}
-          </Row>
-          
-          <Card className="mt-4">
-            <h5>📱 How to Import:</h5>
-            <ol className="mb-0">
-              <li className="mb-2">Click "Export to Calendar" to download the .ics file</li>
-              <li className="mb-2"><strong>iOS:</strong> Open the file, tap "Add All" to import to Apple Calendar</li>
-              <li className="mb-2"><strong>Android:</strong> Open the file with Google Calendar app</li>
-              <li><strong>Desktop:</strong> Import the .ics file into your calendar app (Calendar, Outlook, etc.)</li>
-            </ol>
-          </Card>
-        </>
-      )}
+      <div
+        className="col-12 col-md-9 p-0"
+        style={{
+          height: "calc(100vh - 90px)",
+          overflowY: "scroll",
+          borderLeft: "1px solid #ddd"
+        }}
+      >
+        <FullCalendar
+          plugins={[timeGridPlugin, interactionPlugin]}
+          initialView="timeGridWeek"
+          droppable={true}
+          editable={true}
+          events={events}
+          eventReceive={handleEventReceive}
+          eventContent={renderEventContent}
+          eventOverlap={false}
+          slotMinTime="06:00:00"
+          height="auto"
+        />
+      </div>
     </div>
   );
-};
-
-export default SchedulePage;
+}

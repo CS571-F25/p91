@@ -18,8 +18,23 @@
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
 
+.draggable-hw {
+  cursor: grab;
+}
+.draggable-hw:active {
+  cursor: grabbing;
+}
+
+.draggable-block {
+  cursor: grab;
+  user-select: none;
+}
+.draggable-block:active {
+  cursor: grabbing;
+}
+
 .navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
   z-index: 1000;
 }

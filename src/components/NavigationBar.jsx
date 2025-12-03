@@ -1,26 +1,27 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router';
-import { Navbar, Nav, Container } from 'react-bootstrap';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Navbar, Nav, Container } from "react-bootstrap";
 
 const NavigationBar = () => {
   const location = useLocation();
-  
+
   const navItems = [
-    { path: '/', label: 'Home', icon: '🏠' },
-    { path: '/about', label: 'About', icon: '👤' },
-    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/homework', label: 'Add Homework', icon: '📚' },
-    { path: '/schedule', label: 'My Schedule', icon: '🗓️' }
+    { path: "/", label: "Home", icon: "🏠" },
+    { path: "/dashboard", label: "Dashboard", icon: "📊" },
+    { path: "/homework", label: "Homework", icon: "📚" },
+    { path: "/schedule", label: "Schedule", icon: "🗓️" },
   ];
-  
+
   return (
-    <Navbar bg="primary" variant="dark" expand="lg">
+    <Navbar bg="primary" variant="dark" expand="lg" fixed="top">
       <Container>
-        <Navbar.Brand href="#/">
+        <Navbar.Brand as={Link} to="/">
           📅 <strong>StudySync</strong>
         </Navbar.Brand>
-        <Navbar.Toggle aria-controls="basic-navbar-nav" />
-        <Navbar.Collapse id="basic-navbar-nav">
+
+        <Navbar.Toggle aria-controls="main-navbar-nav" />
+
+        <Navbar.Collapse id="main-navbar-nav">
           <Nav className="ms-auto">
             {navItems.map(({ path, label, icon }) => (
               <Nav.Link
