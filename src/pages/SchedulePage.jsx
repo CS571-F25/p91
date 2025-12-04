@@ -15,6 +15,16 @@ export default function SchedulePage({
   const defaultColor = "#0d6efd";
   const [calendarRange, setCalendarRange] = useState({ start: null, end: null });
   const [shadedHomework, setShadedHomework] = useState(null);
+  const [includeHomeworkExport, setIncludeHomeworkExport] = useState(true);
+  const [includeCommitmentsExport, setIncludeCommitmentsExport] = useState(true);
+  const [exportedUids, setExportedUids] = useState(() => {
+    try {
+      const stored = localStorage.getItem("studysync-exported-uids");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const sidebarRef = useRef(null);
   const draggableInitRef = useRef(false);
@@ -317,6 +327,133 @@ export default function SchedulePage({
 
   const allEvents = [...events, ...deadlineShading];
 
+  const uidSet = new Set(exportedUids || []);
+  const hasNewHomework =
+    includeHomeworkExport &&
+    schedule.some(
+      (ev) => !uidSet.has(`hw-${ev.id || ev.start}-${ev.homework || "block"}`)
+    );
+  const hasNewCommitments =
+    includeCommitmentsExport &&
+    (commitments || []).some((c) => {
+      const uid = `commit-${c.id || `${c.day}-${c.startTime}-${c.endTime}`}`;
+      return !uidSet.has(uid);
+    });
+  const canExport =
+    (includeHomeworkExport || includeCommitmentsExport) &&
+    (hasNewHomework || hasNewCommitments);
+
+  const formatICSDate = (date) => {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  };
+
+  const getNextDateForDayIndex = (dayIdx) => {
+    const now = new Date();
+    const diff = (dayIdx - now.getDay() + 7) % 7;
+    const next = new Date(now);
+    next.setHours(0, 0, 0, 0);
+    next.setDate(now.getDate() + diff);
+    return next;
+  };
+
+  const persistExportedUids = (uids) => {
+    setExportedUids(uids);
+    try {
+      localStorage.setItem("studysync-exported-uids", JSON.stringify(uids));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const handleExportCalendar = () => {
+    if (!canExport) return;
+
+    const uidSet = new Set(exportedUids || []);
+    const lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//StudySync//Calendar Export//EN"
+    ];
+
+    const dayCode = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    const nowStamp = formatICSDate(new Date());
+    const newUids = [];
+
+    if (includeHomeworkExport) {
+      schedule.forEach((ev) => {
+        if (!ev.start || !ev.end) return;
+        const uid = `hw-${ev.id || ev.start}-${ev.homework || "block"}`;
+        if (uidSet.has(uid)) return;
+        const dtStart = formatICSDate(ev.start);
+        const dtEnd = formatICSDate(ev.end);
+        if (!dtStart || !dtEnd) return;
+
+        lines.push("BEGIN:VEVENT");
+        lines.push(`UID:${uid}`);
+        lines.push(`DTSTAMP:${nowStamp}`);
+        lines.push(`SUMMARY:${ev.homework || "Study Block"}`);
+        lines.push(`DTSTART:${dtStart}`);
+        lines.push(`DTEND:${dtEnd}`);
+        lines.push("END:VEVENT");
+
+        newUids.push(uid);
+      });
+    }
+
+    if (includeCommitmentsExport) {
+      (commitments || []).forEach((c) => {
+        if (!c.day || !formatTime(c.startTime) || !formatTime(c.endTime)) return;
+        const uid = `commit-${c.id || `${c.day}-${c.startTime}-${c.endTime}`}`;
+        if (uidSet.has(uid)) return;
+        const dayIdx = dayToIndex[c.day];
+        const startDate = getNextDateForDayIndex(dayIdx);
+
+        const [sh, sm] = c.startTime.split(":").map((n) => parseInt(n, 10));
+        const [eh, em] = c.endTime.split(":").map((n) => parseInt(n, 10));
+        const start = new Date(startDate);
+        start.setHours(sh || 0, sm || 0, 0, 0);
+        const end = new Date(startDate);
+        end.setHours(eh || 0, em || 0, 0, 0);
+
+        const dtStart = formatICSDate(start);
+        const dtEnd = formatICSDate(end);
+        if (!dtStart || !dtEnd) return;
+
+        const until = c.endDate
+          ? formatICSDate(new Date(`${c.endDate}T23:59:59`))
+          : null;
+        const rrule = until
+          ? `FREQ=WEEKLY;BYDAY=${dayCode[dayIdx]};UNTIL=${until}`
+          : `FREQ=WEEKLY;BYDAY=${dayCode[dayIdx]}`;
+
+        lines.push("BEGIN:VEVENT");
+        lines.push(`UID:${uid}`);
+        lines.push(`DTSTAMP:${nowStamp}`);
+        lines.push(`SUMMARY:${c.description || "Commitment"}`);
+        lines.push(`DTSTART:${dtStart}`);
+        lines.push(`DTEND:${dtEnd}`);
+        lines.push(`RRULE:${rrule}`);
+        lines.push("END:VEVENT");
+
+        newUids.push(uid);
+      });
+    }
+
+    lines.push("END:VCALENDAR");
+    const icsContent = lines.join("\r\n");
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "studysync-calendar.ics";
+    link.click();
+    URL.revokeObjectURL(url);
+
+    persistExportedUids([...uidSet, ...newUids]);
+  };
+
   const isWithinDeadline = (start, end, title) => {
     const deadline = getDeadlineForHomework(title);
     if (!deadline) return true;
@@ -401,6 +538,44 @@ export default function SchedulePage({
           );
         })}
         <CalendarLegend />
+        <div className="mt-4 p-3 border rounded">
+          <h6 className="fw-bold mb-2">Export / Subscribe</h6>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="export-homework"
+              checked={includeHomeworkExport}
+              onChange={(e) => setIncludeHomeworkExport(e.target.checked)}
+            />
+            <label className="form-check-label" htmlFor="export-homework">
+              Include homework blocks
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="export-commitments"
+              checked={includeCommitmentsExport}
+              onChange={(e) => setIncludeCommitmentsExport(e.target.checked)}
+            />
+            <label className="form-check-label" htmlFor="export-commitments">
+              Include commitments
+            </label>
+          </div>
+          <div className="text-muted small mt-2">
+            Re-exports skip items already sent to your calendar to avoid duplicates.
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm w-100 mt-3"
+            onClick={handleExportCalendar}
+            disabled={!canExport}
+          >
+            Export .ics
+          </button>
+        </div>
       </div>
 
       <div
