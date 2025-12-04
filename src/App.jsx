@@ -57,7 +57,7 @@ function App() {
   return (
     <>
       <NavigationBar />
-      <div className="container mt-4">
+      <div className="container mt-3">
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route

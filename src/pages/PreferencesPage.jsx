@@ -96,6 +96,11 @@ export default function PreferencesPage({ prefs, setPrefs }) {
     setPrefs(draftPrefs);
   };
 
+  const isDirty =
+    draftPrefs.timeFormat !== effectivePrefs.timeFormat ||
+    draftPrefs.calendarStart !== effectivePrefs.calendarStart ||
+    draftPrefs.calendarEnd !== effectivePrefs.calendarEnd;
+
   return (
     <div>
       <PageHeader title="⚙️ Preferences" />
@@ -207,7 +212,13 @@ export default function PreferencesPage({ prefs, setPrefs }) {
       </Card>
 
       <div className="d-flex justify-content-end">
-        <Button onClick={handleSave}>Save Preferences</Button>
+        <Button
+          onClick={handleSave}
+          disabled={!isDirty}
+          variant={isDirty ? "primary" : "secondary"}
+        >
+          Save Preferences
+        </Button>
       </div>
     </div>
   );
