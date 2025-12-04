@@ -45,8 +45,10 @@ export const generateSchedule = (homework, commitments, prefs) => {
   }
 
   commitments.forEach(c => {
+    const commitmentEnd = c.endDate ? new Date(c.endDate + 'T23:59:59') : null;
     let currentDate = new Date(today);
     while (currentDate <= maxDeadline) {
+      if (commitmentEnd && currentDate > commitmentEnd) break;
       const dayName = getDayName(currentDate);
       if (dayName === c.day) {
         const dateKey = getDateKey(currentDate);

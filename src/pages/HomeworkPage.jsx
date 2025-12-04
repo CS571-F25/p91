@@ -3,6 +3,9 @@ import { Row, Col, Form, Badge, Modal } from 'react-bootstrap';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import PageHeader from '../components/PageHeader';
+import HomeworkItem from '../components/HomeworkItem';
+import CommitmentItem from '../components/CommitmentItem';
 
 const HomeworkPage = ({
   homework,
@@ -45,8 +48,18 @@ const HomeworkPage = ({
     days: [],
     startTime: '',
     endTime: '',
-    description: ''
+    description: '',
+    endDate: ''
   });
+
+  const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      return new Date(dateStr + "T12:00:00").toLocaleDateString("en-GB");
+    } catch {
+      return dateStr;
+    }
+  };
 
   const daysOfWeek = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday',
@@ -70,7 +83,7 @@ const HomeworkPage = ({
     setHwForm({
       name: '',
       hours: '',
-      deadline: '',
+    deadline: '',
       blockSize: '2',
       color: '#0d6efd'
     });
@@ -172,7 +185,8 @@ const HomeworkPage = ({
       day,
       startTime: commitmentForm.startTime,
       endTime: commitmentForm.endTime,
-      description: commitmentForm.description
+      description: commitmentForm.description,
+      endDate: commitmentForm.endDate || null
     }));
 
     setCommitments(prev => [...prev, ...newCommitments]);
@@ -181,7 +195,8 @@ const HomeworkPage = ({
       days: [],
       startTime: '',
       endTime: '',
-      description: ''
+      description: '',
+      endDate: ''
     });
   };
 
@@ -232,11 +247,11 @@ const HomeworkPage = ({
 
   return (
     <div>
-      <h1 className="container pt-4">📚 Manage Homework & Commitments</h1>
+      <PageHeader title="📚 Manage Homework & Commitments" />
 
-      <Row>
+      <Row className="align-items-stretch">
         <Col lg={6} className="mb-4">
-          <Card>
+          <Card className="h-100 d-flex flex-column">
             <h4>➕ Add Homework</h4>
 
             <Input
@@ -256,8 +271,18 @@ const HomeworkPage = ({
               label="Deadline"
               type="date"
               value={hwForm.deadline}
-              onChange={(e) => setHwForm({ ...hwForm, deadline: e.target.value })}
+              onChange={(e) =>
+                setHwForm({
+                  ...hwForm,
+                  deadline: e.target.value
+                })
+              }
             />
+            {hwForm.deadline && (
+              <div className="text-muted small mb-3">
+                Formatted: {formatDateDisplay(hwForm.deadline)}
+              </div>
+            )}
 
             <Input
               label="Block Size (hours)"
@@ -322,83 +347,18 @@ const HomeworkPage = ({
             </Button>
 
             {homework.length > 0 && (
-              <div className="mt-4">
+              <div className="mt-4" style={{ maxHeight: "340px", overflowY: "auto" }}>
                 <h5>Current Homework</h5>
 
                 {homework.map(hw => (
-                  <div
+                  <HomeworkItem
                     key={hw.id}
-                    className="p-3 border rounded d-flex justify-content-between align-items-center mt-2 shadow-sm bg-white"
-                  >
-                    <div style={{ flex: 1 }}>
-                      <strong>{hw.name}</strong>
-                      <div className="text-muted">
-                        {hw.hours}h total — {hw.blockSize}h blocks
-                      </div>
-                      <div className="text-muted small">
-                      Due {
-                        hw.deadline
-                          ? new Date(hw.deadline + "T12:00:00").toLocaleDateString()
-                          : ""
-                      }
-                      </div>
-                      <div className="d-flex align-items-center gap-2 mt-2">
-                        <span
-                          style={{
-                            display: "inline-block",
-                            width: "26px",
-                            height: "26px",
-                            borderRadius: "6px",
-                            border: "1px solid #ccc",
-                            backgroundColor: hw.color || "#0d6efd"
-                          }}
-                          aria-label={`${hw.name} color swatch`}
-                        />
-                        <div style={{ position: 'relative', width: '34px', height: '26px' }}>
-                          <button
-                            type="button"
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              borderRadius: '6px',
-                              border: '1px solid #ccc',
-                              background: '#fff',
-                              cursor: 'pointer',
-                              padding: 0
-                            }}
-                            aria-label={`Change color for ${hw.name}`}
-                          >
-                            🎨
-                          </button>
-                          <input
-                            type="color"
-                            value={hw.color || "#0d6efd"}
-                            onChange={(e) => updateHomeworkColor(hw.id, e.target.value)}
-                            style={{
-                              position: 'absolute',
-                              inset: 0,
-                              opacity: 0,
-                              cursor: 'pointer'
-                            }}
-                            aria-label={`Custom color for ${hw.name}`}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => deleteHomework(hw.id)}
-                    >
-                      🗑️
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-secondary ms-2"
-                      onClick={() => startEditingHomework(hw)}
-                    >
-                      ✏️ Edit
-                    </button>
-                  </div>
+                    homework={hw}
+                    dueText={hw.deadline ? formatDateDisplay(hw.deadline) : ""}
+                    onDelete={() => deleteHomework(hw.id)}
+                    onEdit={() => startEditingHomework(hw)}
+                    onColorChange={(color) => updateHomeworkColor(hw.id, color)}
+                  />
                 ))}
               </div>
             )}
@@ -406,7 +366,7 @@ const HomeworkPage = ({
         </Col>
 
         <Col lg={6}>
-          <Card>
+          <Card className="h-100 d-flex flex-column">
             <h4>📅 Add Commitment</h4>
 
             <Form.Group className="mb-3">
@@ -458,6 +418,13 @@ const HomeworkPage = ({
               onChange={(e) => setCommitmentForm({ ...commitmentForm, description: e.target.value })}
             />
 
+            <Input
+              label="End Date (optional)"
+              type="date"
+              value={commitmentForm.endDate}
+              onChange={(e) => setCommitmentForm({ ...commitmentForm, endDate: e.target.value })}
+            />
+
             <Button
               className="w-100"
               onClick={addCommitment}
@@ -471,45 +438,19 @@ const HomeworkPage = ({
             </Button>
 
             {commitments.length > 0 && (
-              <div className="mt-4">
+              <div className="mt-4" style={{ maxHeight: "340px", overflowY: "auto" }}>
                 <h5>Current Commitments</h5>
 
                 {groupedCommitmentsList.map((group, idx) => (
-                  <div
+                  <CommitmentItem
                     key={idx}
-                    className="p-3 border rounded mt-2 shadow-sm bg-white"
-                    style={{ borderLeft: `4px solid ${getDayColor(group.days[0])}` }}
-                  >
-                    <div className="d-flex justify-content-between">
-                      <div>
-                        <strong>{group.startTime} - {group.endTime}</strong>
-                        <div className="text-muted small">{group.description}</div>
-
-                        <div className="mt-1">
-                          {group.days.map((day, i) => (
-                            <span
-                              key={i}
-                              className="badge me-1"
-                              style={{ backgroundColor: getDayColor(day) }}
-                            >
-                              {getDayAbbr(day)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <button
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() =>
-                          setCommitments(prev =>
-                            prev.filter(c => !group.ids.includes(c.id))
-                          )
-                        }
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
+                    group={group}
+                    getDayColor={getDayColor}
+                    getDayAbbr={getDayAbbr}
+                    onDelete={() =>
+                      setCommitments(prev => prev.filter(c => !group.ids.includes(c.id)))
+                    }
+                  />
                 ))}
               </div>
             )}

@@ -6,10 +6,10 @@ const NavigationBar = () => {
   const location = useLocation();
 
   const navItems = [
-    { path: "/", label: "Home", icon: "🏠" },
     { path: "/dashboard", label: "Dashboard", icon: "📊" },
     { path: "/homework", label: "Homework", icon: "📚" },
     { path: "/schedule", label: "Schedule", icon: "🗓️" },
+    { path: "/preferences", label: "Preferences", icon: "⚙️" },
   ];
 
   return (

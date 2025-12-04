@@ -3,7 +3,7 @@ import { Form } from 'react-bootstrap';
 
 const Input = ({ label, ...props }) => (
   <Form.Group className="mb-3">
-    {label && <Form.Label>{label}</Form.Label>}
+    {label && <Form.Label className="d-block">{label}</Form.Label>}
     <Form.Control {...props} />
   </Form.Group>
 );

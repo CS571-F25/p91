@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
+import PageHeader from "../components/PageHeader";
+import CalendarLegend from "../components/CalendarLegend";
 
 export default function SchedulePage({
   homework,
   schedule,
   setSchedule,
-  commitments
+  commitments,
+  prefs
 }) {
   const defaultColor = "#0d6efd";
   const [calendarRange, setCalendarRange] = useState({ start: null, end: null });
@@ -34,6 +37,31 @@ export default function SchedulePage({
     const totalHours = parseFloat(hw.hours || 0);
     const scheduledHours = getScheduledHours(hw.name);
     return Math.max(0, totalHours - scheduledHours);
+  };
+
+  const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      return new Date(dateStr + "T12:00:00").toLocaleDateString("en-GB");
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const normalizeTime = (time, fallback) => {
+    if (!time || typeof time !== "string") return fallback;
+    if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
+    if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
+    return fallback;
+  };
+
+  const toMinutes = (timeStr, fallbackMinutes) => {
+    const normalized = normalizeTime(timeStr, null);
+    if (!normalized) return fallbackMinutes;
+    const [h, m] = normalized.split(":");
+    const mins = parseInt(h, 10) * 60 + parseInt(m, 10);
+    if (Number.isNaN(mins)) return fallbackMinutes;
+    return mins;
   };
 
   const homeworkEvents = schedule.map((s) => {
@@ -77,6 +105,7 @@ export default function SchedulePage({
       daysOfWeek: [dayToIndex[c.day]],
       startTime: formatTime(c.startTime),
       endTime: formatTime(c.endTime),
+      endRecur: c.endDate ? `${c.endDate}T23:59:59` : undefined,
       backgroundColor: "#6c757d",
       borderColor: "#495057",
       editable: false
@@ -215,20 +244,35 @@ export default function SchedulePage({
     const isCommitment = info.event.id.startsWith("commit-");
 
     return (
-      <div className="d-flex justify-content-between align-items-center w-100">
-        <span>{info.event.title}</span>
+      <div
+        className={`position-relative w-100 h-100 d-flex align-items-center ${
+          !isCommitment ? "resizable-event" : ""
+        }`}
+        style={{ padding: "4px 6px" }}
+      >
+        {!isCommitment && (
+          <span className="resize-arrow top" aria-hidden="true" />
+        )}
+
+        <div className="d-flex justify-content-between align-items-center w-100">
+          <span>{info.event.title}</span>
+
+          {!isCommitment && (
+            <span
+              className="text-danger ms-2"
+              style={{ cursor: "pointer", fontSize: "1.2rem" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteEvent(info.event);
+              }}
+            >
+              🗑️
+            </span>
+          )}
+        </div>
 
         {!isCommitment && (
-          <span
-            className="text-danger ms-2"
-            style={{ cursor: "pointer", fontSize: "1.2rem" }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteEvent(info.event);
-            }}
-          >
-            🗑️
-          </span>
+          <span className="resize-arrow bottom" aria-hidden="true" />
         )}
       </div>
     );
@@ -267,7 +311,9 @@ export default function SchedulePage({
   };
 
   return (
-    <div className="row">
+    <>
+      <PageHeader title="🗓️ Schedule" subtitle="Drag study blocks into your week" />
+      <div className="row">
       <div className="col-12 col-md-3 border-end p-3" ref={sidebarRef}>
         <h4 className="mb-3">Plan Homework</h4>
 
@@ -305,7 +351,7 @@ export default function SchedulePage({
                 {hw.hours}h total • {hw.blockSize}h blocks
               </div>
               <div className="small text-muted">
-                Deadline: {formatDeadline(hw.deadline)}
+                Deadline: {formatDateDisplay(hw.deadline)}
               </div>
               <div className="small mb-2">
                 Hours remaining: <strong>{remainingHours.toFixed(1)}h</strong>
@@ -334,37 +380,90 @@ export default function SchedulePage({
             </div>
           );
         })}
+        <CalendarLegend />
       </div>
 
       <div
         className="col-12 col-md-9 p-0"
         style={{
           height: "calc(100vh - 90px)",
-          overflowY: "scroll",
+          overflowY: "auto",
           borderLeft: "1px solid #ddd"
         }}
       >
-        <FullCalendar
-          plugins={[timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          droppable={true}
-          editable={true}
-          eventDurationEditable={true}
-          eventResizableFromStart={true}
-          events={allEvents}
-          eventReceive={handleEventReceive}
-          eventDrop={handleEventDrop}
-          eventResize={handleEventResize}
-          eventContent={renderEventContent}
-          eventAllow={(dropInfo, draggedEvent) =>
-            isWithinDeadline(dropInfo.start, dropInfo.end, draggedEvent.title)
-          }
-          datesSet={(arg) => setCalendarRange({ start: arg.start, end: arg.end })}
-          eventOverlap={false}
-          slotMinTime="06:00:00"
-          height="auto"
-        />
+        <div className="schedule-calendar">
+          <FullCalendar
+            plugins={[timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: ""
+          }}
+          titleFormat={{
+            month: "short",
+            day: "numeric",
+            year: "numeric"
+          }}
+          dayHeaderFormat={{
+            weekday: "short",
+            day: "numeric"
+          }}
+            droppable={true}
+            editable={true}
+            eventDurationEditable={true}
+            eventResizableFromStart={true}
+            events={allEvents}
+            eventReceive={handleEventReceive}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            eventContent={renderEventContent}
+            eventAllow={(dropInfo, draggedEvent) =>
+              isWithinDeadline(dropInfo.start, dropInfo.end, draggedEvent.title)
+            }
+            datesSet={(arg) => setCalendarRange({ start: arg.start, end: arg.end })}
+            eventOverlap={false}
+            slotMinTime={(() => {
+              const rawEnd = prefs?.calendarEnd;
+              let minMinutes = toMinutes(prefs?.calendarStart, 360);
+              let maxMinutes = toMinutes(rawEnd, 1320);
+              if (maxMinutes === 0 && typeof rawEnd === "string" && rawEnd.startsWith("00")) {
+                maxMinutes = 1440;
+              }
+              if (maxMinutes <= minMinutes) {
+                maxMinutes = Math.min(1440, minMinutes + 60);
+              }
+              const safeMin = Math.max(0, Math.min(minMinutes, maxMinutes - 60));
+              const h = String(Math.floor(safeMin / 60)).padStart(2, "0");
+              const m = String(safeMin % 60).padStart(2, "0");
+              return `${h}:${m}:00`;
+            })()}
+            slotMaxTime={(() => {
+              const rawEnd = prefs?.calendarEnd;
+              const minMinutes = toMinutes(prefs?.calendarStart, 360);
+              let maxMinutes = toMinutes(rawEnd, 1320);
+              if (maxMinutes === 0 && typeof rawEnd === "string" && rawEnd.startsWith("00")) {
+                maxMinutes = 1440;
+              }
+              if (maxMinutes <= minMinutes) {
+                maxMinutes = Math.min(1440, minMinutes + 60);
+              }
+              const safeMax = Math.max(maxMinutes, minMinutes + 60);
+              const h = String(Math.floor(safeMax / 60)).padStart(2, "0");
+              const m = String(safeMax % 60).padStart(2, "0");
+              return `${h}:${m}:00`;
+            })()}
+            slotLabelFormat={{
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: prefs?.timeFormat !== "24h",
+            }}
+            height="auto"
+            stickyHeaderDates={true}
+          />
+        </div>
       </div>
     </div>
+    </>
   );
 }

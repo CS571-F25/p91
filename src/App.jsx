@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
-import Home from "./components/Home";
-import AboutMe from "./components/AboutMe";
 import SchedulePage from "./pages/SchedulePage";
 import HomeworkPage from "./pages/HomeworkPage";
 import DashboardPage from "./pages/DashboardPage";
+import PreferencesPage from "./pages/PreferencesPage";
 import NavigationBar from "./components/NavigationBar";
 import "./App.css";
 
@@ -25,6 +24,20 @@ function App() {
     return stored ? JSON.parse(stored) : [];
   });
 
+  const [prefs, setPrefs] = useState(() => {
+    const stored = localStorage.getItem("studysync-prefs");
+    return stored
+      ? JSON.parse(stored)
+      : {
+          startTime: "08:00",
+          endTime: "22:00",
+          breaks: [],
+          timeFormat: "12h",
+          calendarStart: "06:00",
+          calendarEnd: "22:00"
+        };
+  });
+
   useEffect(() => {
     localStorage.setItem("studysync-homework", JSON.stringify(homework));
   }, [homework]);
@@ -37,13 +50,16 @@ function App() {
     localStorage.setItem("studysync-commitments", JSON.stringify(commitments));
   }, [commitments]);
 
+  useEffect(() => {
+    localStorage.setItem("studysync-prefs", JSON.stringify(prefs));
+  }, [prefs]);
+
   return (
     <>
       <NavigationBar />
       <div className="container mt-4">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<AboutMe />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route
             path="/dashboard"
             element={
@@ -62,8 +78,13 @@ function App() {
                 schedule={schedule}
                 setSchedule={setSchedule}
                 commitments={commitments}
+                prefs={prefs}
               />
             }
+          />
+          <Route
+            path="/preferences"
+            element={<PreferencesPage prefs={prefs} setPrefs={setPrefs} />}
           />
           <Route
             path="/homework"

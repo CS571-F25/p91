@@ -65,3 +65,43 @@
 .read-the-docs {
   color: #888;
 }
+
+.resizable-event {
+  position: relative;
+}
+
+.resizable-event .resize-arrow {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.resizable-event:hover .resize-arrow {
+  opacity: 1;
+}
+
+.resizable-event .resize-arrow.top {
+  top: -12px;
+  border-bottom: 8px solid #6c757d;
+}
+
+.resizable-event .resize-arrow.bottom {
+  bottom: -12px;
+  border-top: 8px solid #6c757d;
+}
+
+.schedule-calendar .fc-header-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  padding: 8px 12px;
+  border-bottom: 1px solid #dee2e6;
+}
