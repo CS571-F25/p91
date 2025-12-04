@@ -102,6 +102,127 @@
   top: 0;
   z-index: 10;
   background: #fff;
-  padding: 8px 12px;
+  padding: 4px 12px;
   border-bottom: 1px solid #dee2e6;
+  margin-bottom: 0;
+}
+
+.schedule-calendar {
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.schedule-calendar .fc {
+  margin-top: 0;
+}
+
+.schedule-calendar .fc-toolbar {
+  margin: 0;
+  padding-top: 0;
+}
+
+.schedule-calendar .fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 0;
+}
+
+.schedule-calendar .fc-col-header-cell-cushion {
+  padding: 4px 0;
+}
+
+/* Modern calendar look */
+.schedule-calendar.calendar-modern .fc-header-toolbar {
+  background: #f8f9fb;
+  border-bottom: 1px solid #e1e5ec;
+  padding: 6px 14px;
+}
+
+.schedule-calendar.calendar-modern .fc-col-header-cell {
+  background: #ffffff;
+  border-color: #e6e9ef;
+}
+
+.schedule-calendar.calendar-modern .fc-col-header-cell-cushion {
+  padding: 6px 0;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+
+.schedule-calendar.calendar-modern .fc-timegrid-slot {
+  border-color: #eef1f6;
+}
+
+.schedule-calendar.calendar-modern .fc-timegrid-slot:nth-child(6n+1) {
+  border-color: #d9dee7;
+}
+
+.schedule-calendar.calendar-modern .fc-timegrid-axis {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.schedule-calendar.calendar-modern .fc-button-primary {
+  background: #eef2f7;
+  border: 1px solid #d7dce4;
+  color: #1f2d3d;
+}
+
+.schedule-calendar.calendar-modern .fc-button-primary.fc-button-active,
+.schedule-calendar.calendar-modern .fc-button-primary:focus,
+.schedule-calendar.calendar-modern .fc-button-primary:active {
+  background: #e2e7ef;
+  border-color: #c9ced8;
+  box-shadow: none;
+}
+
+.schedule-calendar.calendar-modern .fc-button-primary:not(:disabled):hover {
+  background: #e2e7ef;
+  border-color: #c9ced8;
+}
+
+.schedule-calendar.calendar-modern .fc-event {
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-width: 1px;
+  overflow: hidden;
+}
+
+.schedule-calendar.calendar-modern .fc-event-main-frame {
+  padding: 6px 8px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.schedule-calendar.calendar-modern .fc-event:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.schedule-calendar.calendar-modern .fc-event-title {
+  color: inherit;
+}
+
+.schedule-calendar.calendar-modern .deadline-line-bg {
+  background: linear-gradient(
+    90deg,
+    transparent 48%,
+    rgba(220, 53, 69, 0.65) 50%,
+    transparent 52%
+  ) !important;
+  border: none !important;
+  pointer-events: none;
+}
+
+.schedule-calendar .deadline-line-marker {
+  width: 3px;
+  background: linear-gradient(180deg, rgba(220, 53, 69, 0.8), rgba(220, 53, 69, 0.4));
+  height: 100%;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+
+.schedule-calendar .fc-now-indicator-line {
+  border-color: #ff4d4f;
+}
+
+.schedule-calendar .fc-now-indicator-arrow {
+  border-color: #ff4d4f;
 }

@@ -242,6 +242,11 @@ export default function SchedulePage({
     if (info.event.display === "background") return null;
 
     const isCommitment = info.event.id.startsWith("commit-");
+    if (info.event.classNames?.includes("deadline-line-bg")) {
+      return (
+        <div className="deadline-line-marker" aria-label="Deadline boundary" />
+      );
+    }
 
     return (
       <div
@@ -298,6 +303,15 @@ export default function SchedulePage({
           borderColor: "rgba(220, 53, 69, 0.5)"
         });
       }
+      const deadlineStart = new Date(hw.deadline + "T00:00:00");
+      const deadlineLineEnd = new Date(deadlineStart.getTime() + 24 * 60 * 60 * 1000);
+      deadlineShading.push({
+        id: `deadline-line-${hw.id}`,
+        start: deadlineStart,
+        end: deadlineLineEnd,
+        display: "background",
+        classNames: ["deadline-line-bg"]
+      });
     }
   }
 
@@ -312,8 +326,14 @@ export default function SchedulePage({
 
   return (
     <>
-      <PageHeader title="🗓️ Schedule" subtitle="Drag study blocks into your week" />
-      <div className="row">
+      <PageHeader
+        title="🗓️ Schedule"
+        subtitle="Drag study blocks into your week"
+      />
+      <div
+        className="row"
+        style={{ paddingBottom: "30px" }}
+      >
       <div className="col-12 col-md-3 border-end p-3" ref={sidebarRef}>
         <h4 className="mb-3">Plan Homework</h4>
 
@@ -391,24 +411,27 @@ export default function SchedulePage({
           borderLeft: "1px solid #ddd"
         }}
       >
-        <div className="schedule-calendar">
+        <div className="schedule-calendar calendar-modern">
           <FullCalendar
             plugins={[timeGridPlugin, interactionPlugin]}
             initialView="timeGridWeek"
+            buttonText={{ today: "Today" }}
           headerToolbar={{
             left: "prev,next today",
             center: "title",
             right: ""
           }}
           titleFormat={{
+            day: "2-digit",
             month: "short",
-            day: "numeric",
             year: "numeric"
           }}
           dayHeaderFormat={{
             weekday: "short",
-            day: "numeric"
+            day: "2-digit",
+            month: "short"
           }}
+          nowIndicator={true}
             droppable={true}
             editable={true}
             eventDurationEditable={true}

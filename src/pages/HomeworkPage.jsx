@@ -25,6 +25,7 @@ const HomeworkPage = ({
     '#dc3545',
     '#198754'
   ];
+  const swatchSize = 36;
 
   const [hwForm, setHwForm] = useState({
     name: '',
@@ -301,8 +302,8 @@ const HomeworkPage = ({
                     type="button"
                     onClick={() => setHwForm({ ...hwForm, color })}
                     style={{
-                      width: '32px',
-                      height: '32px',
+                      width: `${swatchSize}px`,
+                      height: `${swatchSize}px`,
                       borderRadius: '6px',
                       border: hwForm.color === color ? '2px solid #000' : '1px solid #ccc',
                       backgroundColor: color,
@@ -311,16 +312,31 @@ const HomeworkPage = ({
                     aria-label={`Choose color ${color}`}
                   />
                 ))}
-                <div style={{ position: 'relative', width: '40px', height: '32px' }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    width: `${swatchSize}px`,
+                    height: `${swatchSize}px`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
                   <button
                     type="button"
                     style={{
-                      width: '100%',
-                      height: '100%',
+                      width: `${swatchSize}px`,
+                      height: `${swatchSize}px`,
                       borderRadius: '6px',
                       border: '1px solid #ccc',
                       background: '#fff',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      fontSize: '1.9rem',
+                      lineHeight: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0
                     }}
                     aria-label="Custom color"
                   >
