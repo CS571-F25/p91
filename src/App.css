@@ -76,25 +76,28 @@
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
   pointer-events: none;
 }
 
 .resizable-event:hover .resize-arrow {
   opacity: 1;
+  transform: translateX(-50%) scale(1.1);
 }
 
 .resizable-event .resize-arrow.top {
-  top: -12px;
-  border-bottom: 8px solid #6c757d;
+  top: -1px;
+  border-bottom: 10px solid rgba(52, 58, 64, 0.65);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
 }
 
 .resizable-event .resize-arrow.bottom {
-  bottom: -12px;
-  border-top: 8px solid #6c757d;
+  bottom: -1px;
+  border-top: 10px solid rgba(52, 58, 64, 0.65);
+  filter: drop-shadow(0 -1px 2px rgba(0, 0, 0, 0.18));
 }
 
 .schedule-calendar .fc-header-toolbar {
@@ -225,4 +228,22 @@
 
 .schedule-calendar .fc-now-indicator-arrow {
   border-color: #ff4d4f;
+}
+
+.schedule-calendar .event-conflict {
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.75);
+  border-color: #b02a37 !important;
+  position: relative;
+}
+
+.schedule-calendar .event-conflict::after {
+  content: "Conflict";
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: rgba(220, 53, 69, 0.9);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
 }

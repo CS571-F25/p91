@@ -7,7 +7,6 @@ const NavigationBar = () => {
 
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: "📊" },
-    { path: "/homework", label: "Homework", icon: "📚" },
     { path: "/schedule", label: "Schedule", icon: "🗓️" },
     { path: "/preferences", label: "Preferences", icon: "⚙️" },
   ];

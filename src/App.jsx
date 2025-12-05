@@ -65,8 +65,10 @@ function App() {
             element={
               <DashboardPage
                 homework={homework}
+                setHomework={setHomework}
                 commitments={commitments}
                 schedule={schedule}
+                setSchedule={setSchedule}
               />
             }
           />
@@ -75,9 +77,11 @@ function App() {
             element={
               <SchedulePage
                 homework={homework}
+                setHomework={setHomework}
                 schedule={schedule}
                 setSchedule={setSchedule}
                 commitments={commitments}
+                setCommitments={setCommitments}
                 prefs={prefs}
               />
             }
@@ -96,6 +100,7 @@ function App() {
                 setCommitments={setCommitments}
                 schedule={schedule}
                 setSchedule={setSchedule}
+                prefs={prefs}
               />
             }
           />

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// Not in nav bar anymore, keeping this as backup
+
+import React, { useState, useEffect } from 'react';
 import { Row, Col, Form, Badge, Modal } from 'react-bootstrap';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -13,8 +15,10 @@ const HomeworkPage = ({
   commitments,
   setCommitments,
   schedule,
-  setSchedule
+  setSchedule,
+  prefs
 }) => {
+  const timeFormat = prefs?.timeFormat || "12h";
 
   const presetColors = [
     '#0d6efd',
@@ -51,6 +55,10 @@ const HomeworkPage = ({
     endTime: '',
     description: '',
     endDate: ''
+  });
+  const [commitmentDisplay, setCommitmentDisplay] = useState({
+    start: '',
+    end: ''
   });
 
   const formatDateDisplay = (dateStr) => {
@@ -246,13 +254,90 @@ const HomeworkPage = ({
 
   const groupedCommitmentsList = Object.values(groupedCommitments);
 
+  const splitTo12h = (value) => {
+    if (!value || typeof value !== "string") return { time: "", meridiem: "AM" };
+    const [hStr, mStr] = value.split(":");
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    if (Number.isNaN(h) || Number.isNaN(m)) return { time: "", meridiem: "AM" };
+    const meridiem = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return {
+      time: `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+      meridiem
+    };
+  };
+
+  const to24h = (time, meridiem) => {
+    if (!time) return "";
+    const [hStr, mStr] =
+      time.replace(/[^\d]/g, "").padStart(4, "0").match(/.{1,2}/g) || ["00", "00"];
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    if (Number.isNaN(h) || Number.isNaN(m)) return "";
+    let hour24 = h % 12;
+    if (meridiem === "PM") hour24 += 12;
+    return `${String(hour24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  const normalize12Input = (value) => {
+    let cleaned = (value || "").replace(/[^\d]/g, "");
+    if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
+    if (cleaned.length >= 3) {
+      cleaned = `${cleaned.slice(0, 2)}:${cleaned.slice(2)}`;
+    } else if (cleaned.length === 2) {
+      cleaned = `${cleaned}:`;
+    }
+    const [hRaw, mRaw] = cleaned.split(":");
+    const hNum = parseInt(hRaw || "", 10);
+    const mNum = parseInt(mRaw || "", 10);
+    const hValid = !Number.isNaN(hNum) ? Math.min(Math.max(hNum, 1), 12) : NaN;
+    const mValid = !Number.isNaN(mNum) ? Math.min(Math.max(mNum, 0), 59) : NaN;
+    if (!Number.isNaN(hValid) && !Number.isNaN(mValid)) {
+      return `${String(hValid).padStart(2, "0")}:${String(mValid).padStart(2, "0")}`;
+    }
+    if (!Number.isNaN(hValid) && cleaned.endsWith(":")) {
+      return `${String(hValid).padStart(2, "0")}:`;
+    }
+    return cleaned;
+  };
+
+  const handleTimeInputChange12 = (field, meridiem) => (e) => {
+    const displayKey = field === "endTime" ? "end" : "start";
+    const normalized = normalize12Input(e.target.value);
+    setCommitmentDisplay((prev) => ({ ...prev, [displayKey]: normalized }));
+    if (/^\d{2}:\d{2}$/.test(normalized)) {
+      const value24 = to24h(normalized, meridiem);
+      setCommitmentForm((prev) => ({ ...prev, [field]: value24 }));
+    } else {
+      setCommitmentForm((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  const handleMeridiemChange12 = (field) => (e) => {
+    const displayKey = field === "endTime" ? "end" : "start";
+    const displayValue = commitmentDisplay[displayKey];
+    const normalized = normalize12Input(displayValue);
+    setCommitmentDisplay((prev) => ({ ...prev, [displayKey]: normalized }));
+    if (/^\d{2}:\d{2}$/.test(normalized)) {
+      const value24 = to24h(normalized, e.target.value);
+      setCommitmentForm((prev) => ({ ...prev, [field]: value24 }));
+    }
+  };
+
+  useEffect(() => {
+    const start12 = splitTo12h(commitmentForm.startTime);
+    const end12 = splitTo12h(commitmentForm.endTime);
+    setCommitmentDisplay({ start: start12.time, end: end12.time });
+  }, [commitmentForm.startTime, commitmentForm.endTime]);
+
   return (
     <div>
       <PageHeader title="📚 Manage Homework & Commitments" />
 
       <Row className="align-items-stretch">
         <Col lg={6} className="mb-4">
-          <Card className="h-100 d-flex flex-column">
+          <Card>
             <h4>➕ Add Homework</h4>
 
             <Input
@@ -382,7 +467,7 @@ const HomeworkPage = ({
         </Col>
 
         <Col lg={6}>
-          <Card className="h-100 d-flex flex-column">
+          <Card>
             <h4>📅 Add Commitment</h4>
 
             <Form.Group className="mb-3">
@@ -414,19 +499,78 @@ const HomeworkPage = ({
               </div>
             </Form.Group>
 
-            <Input
-              label="Start Time"
-              type="time"
-              value={commitmentForm.startTime}
-              onChange={(e) => setCommitmentForm({ ...commitmentForm, startTime: e.target.value })}
-            />
+            {timeFormat === "24h" ? (
+              <>
+                <Input
+                  label="Start Time"
+                  type="time"
+                  value={commitmentForm.startTime}
+                  onChange={(e) =>
+                    setCommitmentForm({ ...commitmentForm, startTime: e.target.value })
+                  }
+                />
 
-            <Input
-              label="End Time"
-              type="time"
-              value={commitmentForm.endTime}
-              onChange={(e) => setCommitmentForm({ ...commitmentForm, endTime: e.target.value })}
-            />
+                <Input
+                  label="End Time"
+                  type="time"
+                  value={commitmentForm.endTime}
+                  onChange={(e) =>
+                    setCommitmentForm({ ...commitmentForm, endTime: e.target.value })
+                  }
+                />
+              </>
+            ) : (
+              <div className="row">
+                <div className="col-12 mb-3">
+                  <label className="form-label">Start Time</label>
+                  <div className="row g-2 align-items-stretch">
+                    <div className="col-9">
+                      <Input
+                        type="text"
+                        value={commitmentDisplay.start}
+                        onChange={handleTimeInputChange12("startTime", splitTo12h(commitmentForm.startTime).meridiem)}
+                        placeholder="--:--"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div className="col-3">
+                      <select
+                        className="form-select w-100"
+                        value={splitTo12h(commitmentForm.startTime).meridiem}
+                        onChange={handleMeridiemChange12("startTime")}
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12 mb-3">
+                  <label className="form-label">End Time</label>
+                  <div className="row g-2 align-items-stretch">
+                    <div className="col-9">
+                      <Input
+                        type="text"
+                        value={commitmentDisplay.end}
+                        onChange={handleTimeInputChange12("endTime", splitTo12h(commitmentForm.endTime).meridiem)}
+                        placeholder="--:--"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div className="col-3">
+                      <select
+                        className="form-select w-100"
+                        value={splitTo12h(commitmentForm.endTime).meridiem}
+                        onChange={handleMeridiemChange12("endTime")}
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Input
               label="Description (optional)"
