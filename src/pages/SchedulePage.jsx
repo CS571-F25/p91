@@ -664,39 +664,41 @@ export default function SchedulePage({
       <PageHeader
         title="🗓️ Schedule"
         subtitle="Drag study blocks into your week"
-        actions={
-          <div className="d-flex gap-2">
-            <Button
-              onClick={() => {
-                setModalTab("homework");
-                setShowAddModal(true);
-              }}
-              className="btn-sm"
-            >
-              ➕ Add Homework
-            </Button>
-            <Button
-              onClick={() => {
-                setModalTab("commitment");
-                setShowAddModal(true);
-              }}
-              className="btn-sm"
-              variant="outline-primary"
-            >
-              ➕ Add Commitment
-            </Button>
-            <Button
-              onClick={() => setShowExportModal(true)}
-              className="btn-sm"
-              variant="outline-secondary"
-            >
-              Export / Subscribe
-            </Button>
-          </div>
-        }
       />
-      <div className="mb-2 d-flex justify-content-center">
-        <CalendarLegend direction="row" className="mt-0" />
+
+      <div
+        className="d-flex justify-content-between align-items-center mb-3 schedule-toolbar"
+        style={{ paddingLeft: "25%" }}
+      >
+        <CalendarLegend direction="row" className="mt-0" hideLabel />
+        <div className="d-flex gap-2 align-items-center">
+          <Button
+            onClick={() => {
+              setModalTab("homework");
+              setShowAddModal(true);
+            }}
+            className="btn-sm"
+          >
+            ➕ Add Homework
+          </Button>
+          <Button
+            onClick={() => {
+              setModalTab("commitment");
+              setShowAddModal(true);
+            }}
+            className="btn-sm"
+            variant="outline-primary"
+          >
+            ➕ Add Commitment
+          </Button>
+          <Button
+            onClick={() => setShowExportModal(true)}
+            className="btn-sm"
+            variant="outline-secondary"
+          >
+            Export / Subscribe
+          </Button>
+        </div>
       </div>
       <div
         className="row"
@@ -707,6 +709,9 @@ export default function SchedulePage({
         style={{ height: "calc(100vh - 90px)" }}
       >
         <h4 className="mb-3 flex-shrink-0">Plan Homework</h4>
+        <div className="text-muted small mb-2 flex-shrink-0">
+          Scroll to see more homework items
+        </div>
         <div
           className="flex-grow-1 overflow-auto"
           ref={sidebarRef}

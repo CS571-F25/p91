@@ -1,5 +1,5 @@
 import React from 'react';
-import { Row, Col } from 'react-bootstrap';
+import { Row, Col, Modal } from 'react-bootstrap';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
@@ -20,7 +20,23 @@ const formatDateDisplay = (dateStr) => {
 };
 
 const DashboardPage = ({ homework, commitments, schedule }) => {
-  const sortedDeadlines = [...homework].sort(
+  const [showPastModal, setShowPastModal] = React.useState(false);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const monthAgo = new Date(today);
+  monthAgo.setDate(monthAgo.getDate() - 30);
+
+  const isPastDue = (hw) =>
+    hw?.deadline ? new Date(hw.deadline) < today : false;
+  const isExpired = (hw) =>
+    hw?.deadline ? new Date(hw.deadline) < monthAgo : false;
+
+  const activeHomework = homework.filter((hw) => !isPastDue(hw));
+  const pastAssignments = homework.filter(
+    (hw) => isPastDue(hw) && !isExpired(hw)
+  );
+
+  const sortedDeadlines = [...activeHomework].sort(
     (a, b) => new Date(a.deadline) - new Date(b.deadline)
   );
   const upcomingDeadlines = sortedDeadlines;
@@ -42,7 +58,7 @@ const DashboardPage = ({ homework, commitments, schedule }) => {
       .reduce((sum, ev) => sum + getEventHours(ev), 0);
   };
 
-  const totalHours = homework.reduce((sum, hw) => sum + parseFloat(hw.hours || 0), 0);
+  const totalHours = activeHomework.reduce((sum, hw) => sum + parseFloat(hw.hours || 0), 0);
   const scheduledHours = schedule.reduce((sum, session) => {
     const duration =
       typeof session.duration === "number" && !Number.isNaN(session.duration)
@@ -67,9 +83,19 @@ const DashboardPage = ({ homework, commitments, schedule }) => {
       <PageHeader
         title="📊 Dashboard"
         actions={
-          <Button onClick={handleClearAllData} variant="outline-danger" className="btn-sm">
-            🗑️ Clear All Data
-          </Button>
+          <div className="d-flex gap-2">
+            <Button
+              variant="outline-secondary"
+              className="btn-sm"
+              onClick={() => setShowPastModal(true)}
+              disabled={pastAssignments.length === 0}
+            >
+              View Past Assignments
+            </Button>
+            <Button onClick={handleClearAllData} variant="outline-danger" className="btn-sm">
+              🗑️ Clear All Data
+            </Button>
+          </div>
         }
       />
       
@@ -89,11 +115,11 @@ const DashboardPage = ({ homework, commitments, schedule }) => {
         <Col lg={4} className="mb-4">
           <Card className="h-100 d-flex flex-column">
             <h3 className="mb-3">⏳ Homework Progress</h3>
-            {homework.length === 0 ? (
+            {activeHomework.length === 0 ? (
               <p className="text-muted">Add homework to start tracking progress.</p>
             ) : (
               <div className="flex-grow-1">
-                {homework.map((hw) => {
+                {activeHomework.map((hw) => {
                   const total = parseFloat(hw.hours || 0) || 0;
                   const done = getScheduledHours(hw.name);
                   const pct = total > 0 ? Math.min(100, (done / total) * 100) : 0;
@@ -198,6 +224,54 @@ const DashboardPage = ({ homework, commitments, schedule }) => {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        show={showPastModal}
+        onHide={() => setShowPastModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>📁 Past Assignments</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {pastAssignments.length === 0 ? (
+            <p className="text-muted mb-0">No assignments in the last 30 days.</p>
+          ) : (
+            <div className="d-flex flex-column gap-2">
+              {pastAssignments.map((hw) => (
+                <div key={hw.id} className="border rounded p-2">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: "12px",
+                          height: "12px",
+                          borderRadius: "4px",
+                          border: "1px solid #ccc",
+                          background: hw.color || "#6c757d"
+                        }}
+                      />
+                      <strong>{hw.name}</strong>
+                    </div>
+                    <small className="text-muted">
+                      Due: {formatDateDisplay(hw.deadline)}
+                    </small>
+                  </div>
+                </div>
+              ))}
+              <div className="text-muted small">
+                Items remain for 30 days after their deadline.
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowPastModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
