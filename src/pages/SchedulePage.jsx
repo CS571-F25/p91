@@ -41,6 +41,7 @@ export default function SchedulePage({
     id: null,
     name: "",
     hours: "",
+    description: "",
     deadline: "",
     blockSize: "",
     color: defaultColor
@@ -58,6 +59,7 @@ export default function SchedulePage({
   const [hwForm, setHwForm] = useState({
     name: "",
     hours: "",
+    description: "",
     deadline: "",
     blockSize: "2",
     color: "#0d6efd"
@@ -156,7 +158,8 @@ export default function SchedulePage({
       editable: true,
       classNames: [],
       extendedProps: {
-        deadlineStr: homeworkItem?.deadline || ""
+        deadlineStr: homeworkItem?.deadline || "",
+        description: homeworkItem?.description || ""
       }
     };
   });
@@ -208,6 +211,7 @@ export default function SchedulePage({
       id: Date.now(),
       name: hwForm.name,
       hours: hwForm.hours,
+      description: hwForm.description,
       deadline: hwForm.deadline,
       blockSize: hwForm.blockSize,
       color: hwForm.color || defaultColor
@@ -216,6 +220,7 @@ export default function SchedulePage({
     setHwForm({
       name: "",
       hours: "",
+      description: "",
       deadline: "",
       blockSize: "2",
       color: defaultColor
@@ -256,6 +261,7 @@ export default function SchedulePage({
       id: hw.id,
       name: hw.name || "",
       hours: hw.hours || "",
+      description: hw.description || "",
       deadline: hw.deadline || "",
       blockSize: hw.blockSize || "2",
       color: hw.color || defaultColor
@@ -750,12 +756,14 @@ export default function SchedulePage({
       getDeadlineString(info.event.title);
     const deadlineText = deadlineStr ? formatDateDisplay(deadlineStr) : null;
     const baseTitle = info.event.title || "Event";
+    const description = info.event.extendedProps?.description;
 
-    if (deadlineText) {
-      info.el.setAttribute("title", `${baseTitle}\nDeadline: ${deadlineText}`);
-    } else {
-      info.el.setAttribute("title", baseTitle);
-    }
+    const parts = [baseTitle];
+    if (description) parts.push(description);
+    if (deadlineText) parts.push(`Deadline: ${deadlineText}`);
+
+    info.el.setAttribute("title", parts.join("\n"));
+    info.el.setAttribute("aria-label", parts.join(" | "));
   };
 
   return (
@@ -866,6 +874,11 @@ export default function SchedulePage({
                       </button>
                     </div>
                   </div>
+                  {hw.description ? (
+                    <div className="text-muted small mb-1">
+                      {hw.description}
+                    </div>
+                  ) : null}
                   <div className="small text-muted">
                     {hw.hours}h total • {hw.blockSize}h blocks
                   </div>
@@ -1029,184 +1042,183 @@ export default function SchedulePage({
       <Modal.Body>
         {modalTab === "homework" ? (
           <div className="row">
-            <div className="col-12 mb-3" style={{ border: "1px solid #0d6efd", borderRadius: "8px", padding: "4px" }}>
-              <Card>
-                <h5>➕ Add Homework</h5>
-                <Input
-                  label="Assignment Name"
-                  value={hwForm.name}
-                  onChange={(e) => setHwForm({ ...hwForm, name: e.target.value })}
-                />
-                <Input
-                  label="Total Hours Needed"
-                  type="number"
-                  value={hwForm.hours}
-                  onChange={(e) => setHwForm({ ...hwForm, hours: e.target.value })}
-                />
-                <Input
-                  label="Deadline"
-                  type="date"
-                  value={hwForm.deadline}
-                  onChange={(e) => setHwForm({ ...hwForm, deadline: e.target.value })}
-                />
-                <Input
-                  label="Block Size (hours)"
-                  type="number"
-                  step="0.5"
-                  value={hwForm.blockSize}
-                  onChange={(e) => setHwForm({ ...hwForm, blockSize: e.target.value })}
-                />
-                <div className="mb-3">
-                  <label className="form-label">Block Color</label>
-                  <div className="d-flex align-items-center justify-content-start gap-2 flex-wrap">
-                    {presetColors.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setHwForm({ ...hwForm, color })}
-                        style={{
-                          width: `${swatchSize}px`,
-                          height: `${swatchSize}px`,
-                          borderRadius: "6px",
-                          border:
-                            hwForm.color === color ? "2px solid #000" : "1px solid #ccc",
-                          backgroundColor: color,
-                          cursor: "pointer"
-                        }}
-                        aria-label={`Choose color ${color}`}
-                      />
-                    ))}
-                    <div
+            <div className="col-12 mb-3">
+              <Input
+                label="Assignment Name"
+                value={hwForm.name}
+                onChange={(e) => setHwForm({ ...hwForm, name: e.target.value })}
+              />
+              <Input
+                label="Description (optional)"
+                value={hwForm.description}
+                onChange={(e) => setHwForm({ ...hwForm, description: e.target.value })}
+              />
+              <Input
+                label="Total Hours Needed"
+                type="number"
+                value={hwForm.hours}
+                onChange={(e) => setHwForm({ ...hwForm, hours: e.target.value })}
+              />
+              <Input
+                label="Deadline"
+                type="date"
+                value={hwForm.deadline}
+                onChange={(e) => setHwForm({ ...hwForm, deadline: e.target.value })}
+              />
+              <Input
+                label="Block Size (hours)"
+                type="number"
+                step="0.5"
+                value={hwForm.blockSize}
+                onChange={(e) => setHwForm({ ...hwForm, blockSize: e.target.value })}
+              />
+              <div className="mb-3">
+                <label className="form-label">Block Color</label>
+                <div className="d-flex align-items-center justify-content-start gap-2 flex-wrap">
+                  {presetColors.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setHwForm({ ...hwForm, color })}
                       style={{
-                        position: "relative",
                         width: `${swatchSize}px`,
                         height: `${swatchSize}px`,
+                        borderRadius: "6px",
+                        border:
+                          hwForm.color === color ? "2px solid #000" : "1px solid #ccc",
+                        backgroundColor: color,
+                        cursor: "pointer"
+                      }}
+                      aria-label={`Choose color ${color}`}
+                    />
+                  ))}
+                  <div
+                    style={{
+                      position: "relative",
+                      width: `${swatchSize}px`,
+                      height: `${swatchSize}px`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        width: `${swatchSize}px`,
+                        height: `${swatchSize}px`,
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                        background: "#fff",
+                        cursor: "pointer",
+                        fontSize: "1.6rem",
+                        lineHeight: 1,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center"
+                        justifyContent: "center",
+                        padding: 0
                       }}
+                      aria-label="Custom color"
                     >
-                      <button
-                        type="button"
-                        style={{
-                          width: `${swatchSize}px`,
-                          height: `${swatchSize}px`,
-                          borderRadius: "6px",
-                          border: "1px solid #ccc",
-                          background: "#fff",
-                          cursor: "pointer",
-                          fontSize: "1.6rem",
-                          lineHeight: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: 0
-                        }}
-                        aria-label="Custom color"
-                      >
-                        🎨
-                      </button>
-                      <input
-                        type="color"
-                        value={hwForm.color}
-                        onChange={(e) => setHwForm({ ...hwForm, color: e.target.value })}
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          opacity: 0,
-                          cursor: "pointer"
-                        }}
-                        aria-label="Custom color"
-                      />
-                    </div>
+                      🎨
+                    </button>
+                    <input
+                      type="color"
+                      value={hwForm.color}
+                      onChange={(e) => setHwForm({ ...hwForm, color: e.target.value })}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        opacity: 0,
+                        cursor: "pointer"
+                      }}
+                      aria-label="Custom color"
+                    />
                   </div>
                 </div>
-                <Button className="w-100" onClick={addHomeworkFromModal}>
-                  Add Homework
-                </Button>
-              </Card>
+              </div>
+              <Button className="w-100" onClick={addHomeworkFromModal}>
+                Add Homework
+              </Button>
             </div>
           </div>
         ) : (
           <div className="row">
-            <div className="col-12 mb-3" style={{ border: "1px solid #0d6efd", borderRadius: "8px", padding: "4px" }}>
-              <Card>
-                <h5>📅 Add Commitment</h5>
-                <Form.Group className="mb-3">
-                  <Form.Label>Days</Form.Label>
-                  <div className="d-flex flex-wrap gap-2">
-                    {daysOfWeek.map((day) => (
-                      <React.Fragment key={day}>
-                        <Form.Check
-                          type="checkbox"
-                          id={`modal-${day}`}
-                          className="btn-check"
-                          checked={commitmentForm.days.includes(day)}
-                          onChange={() => handleDayToggle(day)}
-                          style={{ display: "none" }}
-                        />
-                        <label
-                          htmlFor={`modal-${day}`}
-                          className={`btn btn-sm ${
-                            commitmentForm.days.includes(day)
-                              ? "btn-primary"
-                              : "btn-outline-primary"
-                          }`}
-                        >
-                          {day.slice(0, 3)}
-                        </label>
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </Form.Group>
+            <div className="col-12 mb-3">
+              <Form.Group className="mb-3">
+                <Form.Label>Days</Form.Label>
+                <div className="d-flex flex-wrap gap-2">
+                  {daysOfWeek.map((day) => (
+                    <React.Fragment key={day}>
+                      <Form.Check
+                        type="checkbox"
+                        id={`modal-${day}`}
+                        className="btn-check"
+                        checked={commitmentForm.days.includes(day)}
+                        onChange={() => handleDayToggle(day)}
+                        style={{ display: "none" }}
+                      />
+                      <label
+                        htmlFor={`modal-${day}`}
+                        className={`btn btn-sm ${
+                          commitmentForm.days.includes(day)
+                            ? "btn-primary"
+                            : "btn-outline-primary"
+                        }`}
+                      >
+                        {day.slice(0, 3)}
+                      </label>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </Form.Group>
 
-                <Input
-                  label="Start Time"
-                  type="time"
-                  value={commitmentForm.startTime}
-                  onChange={(e) =>
-                    setCommitmentForm({ ...commitmentForm, startTime: e.target.value })
-                  }
-                />
+              <Input
+                label="Start Time"
+                type="time"
+                value={commitmentForm.startTime}
+                onChange={(e) =>
+                  setCommitmentForm({ ...commitmentForm, startTime: e.target.value })
+                }
+              />
 
-                <Input
-                  label="End Time"
-                  type="time"
-                  value={commitmentForm.endTime}
-                  onChange={(e) =>
-                    setCommitmentForm({ ...commitmentForm, endTime: e.target.value })
-                  }
-                />
+              <Input
+                label="End Time"
+                type="time"
+                value={commitmentForm.endTime}
+                onChange={(e) =>
+                  setCommitmentForm({ ...commitmentForm, endTime: e.target.value })
+                }
+              />
 
-                <Input
-                  label="Description (optional)"
-                  value={commitmentForm.description}
-                  onChange={(e) =>
-                    setCommitmentForm({ ...commitmentForm, description: e.target.value })
-                  }
-                />
+              <Input
+                label="Description (optional)"
+                value={commitmentForm.description}
+                onChange={(e) =>
+                  setCommitmentForm({ ...commitmentForm, description: e.target.value })
+                }
+              />
 
-                <Input
-                  label="End Date (optional)"
-                  type="date"
-                  value={commitmentForm.endDate}
-                  onChange={(e) =>
-                    setCommitmentForm({ ...commitmentForm, endDate: e.target.value })
-                  }
-                />
+              <Input
+                label="End Date (optional)"
+                type="date"
+                value={commitmentForm.endDate}
+                onChange={(e) =>
+                  setCommitmentForm({ ...commitmentForm, endDate: e.target.value })
+                }
+              />
 
-                <Button
-                  className="w-100"
-                  onClick={addCommitmentFromModal}
-                  disabled={
-                    commitmentForm.days.length === 0 ||
-                    !commitmentForm.startTime ||
-                    !commitmentForm.endTime
-                  }
-                >
-                  Add Commitment
-                </Button>
-              </Card>
+              <Button
+                className="w-100"
+                onClick={addCommitmentFromModal}
+                disabled={
+                  commitmentForm.days.length === 0 ||
+                  !commitmentForm.startTime ||
+                  !commitmentForm.endTime
+                }
+              >
+                Add Commitment
+              </Button>
             </div>
           </div>
         )}
@@ -1226,6 +1238,11 @@ export default function SchedulePage({
           label="Assignment Name"
           value={editForm.name}
           onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+        />
+        <Input
+          label="Description (optional)"
+          value={editForm.description}
+          onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
         />
         <Input
           label="Total Hours Needed"
@@ -1330,6 +1347,7 @@ export default function SchedulePage({
               ...original,
               name: editForm.name,
               hours: editForm.hours,
+              description: editForm.description,
               deadline: editForm.deadline,
               blockSize: editForm.blockSize || original.blockSize,
               color: editForm.color || original.color || defaultColor
