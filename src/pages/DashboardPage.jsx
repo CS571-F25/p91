@@ -13,7 +13,7 @@ const formatDateDisplay = (dateStr) => {
     const dd = String(d.getDate()).padStart(2, "0");
     const MM = String(d.getMonth() + 1).padStart(2, "0");
     const yyyy = String(d.getFullYear());
-    return `${MM}/${dd}/${yyyy}`;
+    return `${dd}/${MM}/${yyyy}`;
   } catch {
     return dateStr;
   }
@@ -240,11 +240,11 @@ const DashboardPage = ({ homework, commitments, schedule }) => {
             <div className="d-flex flex-column gap-2">
               {pastAssignments.map((hw) => (
                 <div key={hw.id} className="border rounded p-2">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div className="d-flex align-items-center gap-2">
-                      <span
-                        style={{
-                          display: "inline-block",
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div className="d-flex align-items-center gap-2">
+                        <span
+                          style={{
+                            display: "inline-block",
                           width: "12px",
                           height: "12px",
                           borderRadius: "4px",

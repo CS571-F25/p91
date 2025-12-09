@@ -21,10 +21,6 @@ export default function SchedulePage({
   const defaultColor = "#0d6efd";
   const [calendarRange, setCalendarRange] = useState({ start: null, end: null });
   const [shadedHomework, setShadedHomework] = useState(null);
-  const [highlightConflicts, setHighlightConflicts] = useState(false);
-  const [enableHistory, setEnableHistory] = useState(false);
-  const [undoStack, setUndoStack] = useState([]);
-  const [redoStack, setRedoStack] = useState([]);
   const [includeHomeworkExport, setIncludeHomeworkExport] = useState(true);
   const [includeCommitmentsExport, setIncludeCommitmentsExport] = useState(true);
   const [exportedUids, setExportedUids] = useState(() => {
@@ -37,8 +33,8 @@ export default function SchedulePage({
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalTab, setModalTab] = useState("homework");
-  const [editingHomeworkId, setEditingHomeworkId] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isDraggingBlock, setIsDraggingBlock] = useState(false);
   const [editForm, setEditForm] = useState({
     id: null,
     name: "",
@@ -76,39 +72,14 @@ export default function SchedulePage({
   const sidebarRef = useRef(null);
   const draggableInstanceRef = useRef(null);
 
-  const cloneSchedule = (arr) =>
-    (arr || []).map((ev) => ({
-      ...ev,
-      start: ev.start ? new Date(ev.start) : ev.start,
-      end: ev.end ? new Date(ev.end) : ev.end
-    }));
-
-  const resetHistory = () => {
-    setUndoStack([]);
-    setRedoStack([]);
-  };
-
-  const pushHistory = () => {
-    if (!enableHistory) return;
-    setUndoStack((prev) => [...prev, cloneSchedule(schedule)]);
-    setRedoStack([]);
-  };
-
-  const handleUndo = () => {
-    if (!enableHistory || undoStack.length === 0) return;
-    const previous = undoStack[undoStack.length - 1];
-    setUndoStack((stack) => stack.slice(0, -1));
-    setRedoStack((stack) => [...stack, cloneSchedule(schedule)]);
-    setSchedule(cloneSchedule(previous));
-  };
-
-  const handleRedo = () => {
-    if (!enableHistory || redoStack.length === 0) return;
-    const next = redoStack[redoStack.length - 1];
-    setRedoStack((stack) => stack.slice(0, -1));
-    setUndoStack((stack) => [...stack, cloneSchedule(schedule)]);
-    setSchedule(cloneSchedule(next));
-  };
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setIsDraggingBlock(false);
+      setShadedHomework(null);
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  }, []);
 
   const formatTime = (t) => (t && t.length === 5 ? t : null);
   const getEventHours = (ev) => {
@@ -165,37 +136,12 @@ export default function SchedulePage({
     Saturday: 6
   };
 
-  const conflictsWithCommitments = (start, end) => {
-    if (!start || !end) return false;
-    const dayIdx = new Date(start).getDay();
-    const startMinutes =
-      start.getHours() * 60 + start.getMinutes();
-    const endMinutes = end.getHours() * 60 + end.getMinutes();
-
-    return (commitments || []).some((c) => {
-      if (!c || !c.day || dayToIndex[c.day] !== dayIdx) return false;
-      const startStr = formatTime(c.startTime);
-      const endStr = formatTime(c.endTime);
-      if (!startStr || !endStr) return false;
-      const [sh, sm] = startStr.split(":").map((n) => parseInt(n, 10));
-      const [eh, em] = endStr.split(":").map((n) => parseInt(n, 10));
-      const cStart = sh * 60 + sm;
-      const cEnd = eh * 60 + em;
-      return Math.max(startMinutes, cStart) < Math.min(endMinutes, cEnd);
-    });
-  };
-
   const homeworkEvents = schedule.map((s) => {
+    const homeworkItem = homework.find((h) => h.name === s.homework);
     const color =
       s.color ||
-      homework.find((h) => h.name === s.homework)?.color ||
+      homeworkItem?.color ||
       defaultColor;
-    const conflict =
-      highlightConflicts &&
-      conflictsWithCommitments(
-        s.start ? new Date(s.start) : null,
-        s.end ? new Date(s.end) : null
-      );
 
     return {
       id: (s.id ?? Date.now() + Math.random()).toString(),
@@ -205,7 +151,10 @@ export default function SchedulePage({
       backgroundColor: color,
       borderColor: color,
       editable: true,
-      classNames: conflict ? ["event-conflict"] : []
+      classNames: [],
+      extendedProps: {
+        deadlineStr: homeworkItem?.deadline || ""
+      }
     };
   });
 
@@ -321,7 +270,29 @@ export default function SchedulePage({
     const hw = homework.find((h) => h.name === homeworkName);
     if (!hw || !hw.deadline) return null;
 
-    return new Date(hw.deadline + "T23:59:59");
+    // End of the deadline day (local time)
+    return new Date(hw.deadline + "T23:59:59.999");
+  };
+
+  const normalizeToDay = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  const isAfterDeadline = (date, homeworkName) => {
+    if (!date) return false;
+    const deadline = getDeadlineForHomework(homeworkName);
+    const day = normalizeToDay(date);
+    const deadlineDay = normalizeToDay(deadline);
+    if (!deadlineDay || !day) return false;
+    return day.getTime() > deadlineDay.getTime();
+  };
+
+  const getDeadlineString = (homeworkName) => {
+    const hw = homework.find((h) => h.name === homeworkName);
+    return hw?.deadline || "";
   };
 
   useEffect(() => {
@@ -369,12 +340,14 @@ export default function SchedulePage({
     info.event.remove();
 
     const start = info.event.start;
-    const end = new Date(start.getTime() + hoursToSchedule * 60 * 60 * 1000);
+    let end = new Date(start.getTime() + hoursToSchedule * 60 * 60 * 1000);
 
     const deadline = getDeadlineForHomework(hwName);
-    if (deadline && start > deadline) return;
+    if (isAfterDeadline(start, hwName)) return;
+    if (deadline && end > deadline) {
+      end = deadline;
+    }
 
-    pushHistory();
     setSchedule((prev) => [
       ...prev,
       {
@@ -396,12 +369,15 @@ export default function SchedulePage({
     const deadline = getDeadlineForHomework(info.event.title);
     const endDate = info.event.end || info.event.start;
 
-    if (deadline && endDate > deadline) {
+    if (isAfterDeadline(info.event.start, info.event.title)) {
       info.revert();
       return;
     }
 
-    pushHistory();
+    if (deadline && endDate > deadline) {
+      info.event.setEnd(deadline);
+    }
+
     setSchedule((prev) =>
       prev.map((ev) =>
         (ev.id ?? "").toString() === info.event.id.toString()
@@ -420,12 +396,15 @@ export default function SchedulePage({
     const deadline = getDeadlineForHomework(info.event.title);
     const endDate = info.event.end || info.event.start;
 
-    if (deadline && endDate > deadline) {
+    if (isAfterDeadline(info.event.start, info.event.title)) {
       info.revert();
       return;
     }
 
-    pushHistory();
+    if (deadline && endDate > deadline) {
+      info.event.setEnd(deadline);
+    }
+
     setSchedule((prev) =>
       prev.map((ev) =>
         (ev.id ?? "").toString() === info.event.id.toString()
@@ -440,7 +419,6 @@ export default function SchedulePage({
 
     event.remove();
 
-    pushHistory();
     setSchedule((prev) =>
       prev.filter((ev) => (ev.id ?? "").toString() !== event.id.toString())
     );
@@ -490,9 +468,6 @@ export default function SchedulePage({
       </div>
     );
   };
-
-  const formatDeadline = (deadline) =>
-    deadline ? new Date(deadline + "T12:00:00").toLocaleDateString() : "No deadline";
 
   const deadlineShading = [];
   if (shadedHomework && calendarRange.end) {
@@ -653,10 +628,29 @@ export default function SchedulePage({
   };
 
   const isWithinDeadline = (start, end, title) => {
+    if (!start) return true;
     const deadline = getDeadlineForHomework(title);
     if (!deadline) return true;
-    const comparisonEnd = end || start;
-    return comparisonEnd <= deadline;
+    const startDay = normalizeToDay(start);
+    const deadlineDay = normalizeToDay(deadline);
+    if (!startDay || !deadlineDay) return true;
+    return startDay.getTime() <= deadlineDay.getTime();
+  };
+
+  const eventDidMount = (info) => {
+    if (info.event.display === "background") return;
+
+    const deadlineStr =
+      info.event.extendedProps?.deadlineStr ||
+      getDeadlineString(info.event.title);
+    const deadlineText = deadlineStr ? formatDateDisplay(deadlineStr) : null;
+    const baseTitle = info.event.title || "Event";
+
+    if (deadlineText) {
+      info.el.setAttribute("title", `${baseTitle}\nDeadline: ${deadlineText}`);
+    } else {
+      info.el.setAttribute("title", baseTitle);
+    }
   };
 
   return (
@@ -732,7 +726,9 @@ export default function SchedulePage({
                   key={hw.id}
                   className="p-3 mb-3 rounded border"
                   onMouseEnter={() => setShadedHomework(hw.name)}
-                  onMouseLeave={() => setShadedHomework(null)}
+                  onMouseLeave={() => {
+                    if (!isDraggingBlock) setShadedHomework(null);
+                  }}
                   style={{ position: "relative" }}
                 >
                   <div className="d-flex justify-content-between align-items-center mb-2">
@@ -785,7 +781,10 @@ export default function SchedulePage({
                       backgroundColor: hw.color || defaultColor,
                       border: "1px solid rgba(0,0,0,0.1)"
                     }}
-                    onMouseDown={() => setShadedHomework(hw.name)}
+                    onMouseDown={() => {
+                      setShadedHomework(hw.name);
+                      setIsDraggingBlock(true);
+                    }}
                   >
                     Drag Block ({nextBlockHours}h)
                   </div>
@@ -834,11 +833,16 @@ export default function SchedulePage({
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
             eventContent={renderEventContent}
+            eventDidMount={eventDidMount}
             eventAllow={(dropInfo, draggedEvent) =>
               isWithinDeadline(dropInfo.start, dropInfo.end, draggedEvent.title)
             }
             datesSet={(arg) => setCalendarRange({ start: arg.start, end: arg.end })}
-            eventOverlap={false}
+            eventOverlap={(still, moving) =>
+              still.display === "background" || moving.display === "background"
+                ? true
+                : false
+            }
             slotMinTime={(() => {
               const rawEnd = prefs?.calendarEnd;
               let minMinutes = toMinutes(prefs?.calendarStart, 360);
