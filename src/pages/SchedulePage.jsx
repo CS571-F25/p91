@@ -773,19 +773,6 @@ export default function SchedulePage({
         <div className="d-flex gap-2 align-items-center">
           <Button
             onClick={() => {
-              const nextView = calendarView === "timeGridWeek" ? "dayGridMonth" : "timeGridWeek";
-              setCalendarView(nextView);
-              if (calendarRef.current) {
-                calendarRef.current.getApi().changeView(nextView);
-              }
-            }}
-            className="btn-sm"
-            variant="outline-secondary"
-          >
-            {calendarView === "timeGridWeek" ? "Month View" : "Week View"}
-          </Button>
-          <Button
-            onClick={() => {
               setModalTab("homework");
               setShowAddModal(true);
             }}
@@ -850,32 +837,34 @@ export default function SchedulePage({
                   style={{ position: "relative" }}
                 >
                   <div className="d-flex justify-content-between align-items-center mb-2">
-                    <div className="fw-bold">{hw.name}</div>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        width: "18px",
-                        height: "18px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc",
-                        backgroundColor: hw.color || defaultColor
-                      }}
-                      aria-label={`${hw.name} color`}
-                    />
-                  </div>
-                  <div className="d-flex justify-content-end gap-2 mb-2">
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={() => startEditHomework(hw)}
-                    >
-                      ⋯ Edit
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => deleteHomeworkFromSidebar(hw)}
-                    >
-                      🗑️
-                    </button>
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="fw-bold">{hw.name}</div>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: "18px",
+                          height: "18px",
+                          borderRadius: "4px",
+                          border: "1px solid #ccc",
+                          backgroundColor: hw.color || defaultColor
+                        }}
+                        aria-label={`${hw.name} color`}
+                      />
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={() => startEditHomework(hw)}
+                      >
+                        ⋯ Edit
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => deleteHomeworkFromSidebar(hw)}
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                   <div className="small text-muted">
                     {hw.hours}h total • {hw.blockSize}h blocks
@@ -925,13 +914,30 @@ export default function SchedulePage({
             ref={calendarRef}
             plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
             initialView={calendarView}
+            customButtons={{
+              monthView: {
+                text: "Month",
+                click: () => {
+                  setCalendarView("dayGridMonth");
+                  calendarRef.current?.getApi().changeView("dayGridMonth");
+                }
+              },
+              weekView: {
+                text: "Week",
+                click: () => {
+                  setCalendarView("timeGridWeek");
+                  calendarRef.current?.getApi().changeView("timeGridWeek");
+                }
+              }
+            }}
             buttonText={{ today: "Today" }}
             headerToolbar={{
-              left: "prev,next today",
+              left: "prev,next today monthView weekView",
               center: "title",
               right: ""
             }}
             allDaySlot={false}
+            dayHeaders={calendarView !== "dayGridMonth"}
             titleFormat={{
               day: "2-digit",
               month: "short",
@@ -956,7 +962,12 @@ export default function SchedulePage({
             eventAllow={(dropInfo, draggedEvent) =>
               isWithinDeadline(dropInfo.start, dropInfo.end, draggedEvent.title)
             }
-            datesSet={(arg) => setCalendarRange({ start: arg.start, end: arg.end })}
+            datesSet={(arg) => {
+              setCalendarRange({ start: arg.start, end: arg.end });
+              if (arg.view?.type && arg.view.type !== calendarView) {
+                setCalendarView(arg.view.type);
+              }
+            }}
             eventOverlap={(still, moving) =>
               still.display === "background" || moving.display === "background"
                 ? true
