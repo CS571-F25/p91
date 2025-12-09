@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import PageHeader from "../components/PageHeader";
 import CalendarLegend from "../components/CalendarLegend";
@@ -21,6 +22,7 @@ export default function SchedulePage({
   const defaultColor = "#0d6efd";
   const [calendarRange, setCalendarRange] = useState({ start: null, end: null });
   const [shadedHomework, setShadedHomework] = useState(null);
+  const [calendarView, setCalendarView] = useState("timeGridWeek");
   const [includeHomeworkExport, setIncludeHomeworkExport] = useState(true);
   const [includeCommitmentsExport, setIncludeCommitmentsExport] = useState(true);
   const [exportedUids, setExportedUids] = useState(() => {
@@ -71,6 +73,7 @@ export default function SchedulePage({
 
   const sidebarRef = useRef(null);
   const draggableInstanceRef = useRef(null);
+  const calendarRef = useRef(null);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -295,6 +298,96 @@ export default function SchedulePage({
     return hw?.deadline || "";
   };
 
+  const getCalendarBoundsMinutes = () => {
+    const rawEnd = prefs?.calendarEnd;
+    let minMinutes = toMinutes(prefs?.calendarStart, 360);
+    let maxMinutes = toMinutes(rawEnd, 1320);
+    if (maxMinutes === 0 && typeof rawEnd === "string" && rawEnd.startsWith("00")) {
+      maxMinutes = 1440;
+    }
+    if (maxMinutes <= minMinutes) {
+      maxMinutes = Math.min(1440, minMinutes + 60);
+    }
+    const safeMin = Math.max(0, Math.min(minMinutes, maxMinutes - 60));
+    const safeMax = Math.max(maxMinutes, safeMin + 60);
+    return { minMinutes: safeMin, maxMinutes: safeMax };
+  };
+
+  const getDayBounds = (date) => {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+    return { dayStart, dayEnd };
+  };
+
+  const getBusyIntervalsForDay = (date) => {
+    const { minMinutes, maxMinutes } = getCalendarBoundsMinutes();
+    const { dayStart, dayEnd } = getDayBounds(date);
+
+    const windowStart = new Date(dayStart);
+    windowStart.setMinutes(minMinutes, 0, 0);
+    const windowEnd = new Date(dayStart);
+    windowEnd.setMinutes(Math.min(maxMinutes, 1440), 0, 0);
+
+    const intervals = [];
+
+    // Scheduled homework blocks
+    schedule.forEach((ev) => {
+      if (!ev.start || !ev.end) return;
+      const start = new Date(ev.start);
+      const end = new Date(ev.end);
+      if (end <= windowStart || start >= windowEnd) return;
+      intervals.push({
+        start: new Date(Math.max(start.getTime(), windowStart.getTime())),
+        end: new Date(Math.min(end.getTime(), windowEnd.getTime()))
+      });
+    });
+
+    // Commitments
+    (commitments || []).forEach((c) => {
+      if (!c || !c.day || dayToIndex[c.day] !== date.getDay()) return;
+      const startStr = formatTime(c.startTime);
+      const endStr = formatTime(c.endTime);
+      if (!startStr || !endStr) return;
+      const [sh, sm] = startStr.split(":").map((n) => parseInt(n, 10));
+      const [eh, em] = endStr.split(":").map((n) => parseInt(n, 10));
+      const start = new Date(dayStart);
+      start.setHours(sh || 0, sm || 0, 0, 0);
+      const end = new Date(dayStart);
+      end.setHours(eh || 0, em || 0, 0, 0);
+      if (end <= windowStart || start >= windowEnd) return;
+      intervals.push({
+        start: new Date(Math.max(start.getTime(), windowStart.getTime())),
+        end: new Date(Math.min(end.getTime(), windowEnd.getTime()))
+      });
+    });
+
+    intervals.sort((a, b) => a.start - b.start);
+    return { intervals, windowStart, windowEnd };
+  };
+
+  const findFirstAvailableSlot = (date, durationHours) => {
+    const durationMs = durationHours * 60 * 60 * 1000;
+    const { intervals, windowStart, windowEnd } = getBusyIntervalsForDay(date);
+
+    let candidate = new Date(windowStart);
+    for (const interval of intervals) {
+      if (candidate.getTime() + durationMs <= interval.start.getTime()) {
+        return { start: candidate, end: new Date(candidate.getTime() + durationMs) };
+      }
+      if (candidate < interval.end) {
+        candidate = new Date(interval.end);
+      }
+    }
+
+    if (candidate.getTime() + durationMs <= windowEnd.getTime()) {
+      return { start: candidate, end: new Date(candidate.getTime() + durationMs) };
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     if (!sidebarRef.current) return;
     if (draggableInstanceRef.current) {
@@ -339,8 +432,18 @@ export default function SchedulePage({
 
     info.event.remove();
 
-    const start = info.event.start;
+    const dropDate = info.event.start;
+    const useAutoPlacement = info.view?.type === "dayGridMonth";
+
+    let start = dropDate;
     let end = new Date(start.getTime() + hoursToSchedule * 60 * 60 * 1000);
+
+    if (useAutoPlacement) {
+      const slot = findFirstAvailableSlot(dropDate, hoursToSchedule);
+      if (!slot) return;
+      start = slot.start;
+      end = slot.end;
+    }
 
     const deadline = getDeadlineForHomework(hwName);
     if (isAfterDeadline(start, hwName)) return;
@@ -474,13 +577,14 @@ export default function SchedulePage({
     const hw = homework.find((h) => h.name === shadedHomework);
     if (hw && hw.deadline) {
       const deadlineEnd = getDeadlineForHomework(hw.name);
-      const shadeStart = new Date(deadlineEnd.getTime() + 1000);
+      const shadeStart = new Date(normalizeToDay(deadlineEnd).getTime() + 24 * 60 * 60 * 1000);
 
       if (shadeStart < calendarRange.end) {
         deadlineShading.push({
           id: "deadline-bg",
           start: shadeStart,
           end: calendarRange.end,
+          allDay: true,
           display: "background",
           backgroundColor: "rgba(220, 53, 69, 0.2)",
           borderColor: "rgba(220, 53, 69, 0.5)"
@@ -492,6 +596,7 @@ export default function SchedulePage({
         id: `deadline-line-${hw.id}`,
         start: deadlineStart,
         end: deadlineLineEnd,
+        allDay: true,
         display: "background",
         classNames: ["deadline-line-bg"]
       });
@@ -668,6 +773,19 @@ export default function SchedulePage({
         <div className="d-flex gap-2 align-items-center">
           <Button
             onClick={() => {
+              const nextView = calendarView === "timeGridWeek" ? "dayGridMonth" : "timeGridWeek";
+              setCalendarView(nextView);
+              if (calendarRef.current) {
+                calendarRef.current.getApi().changeView(nextView);
+              }
+            }}
+            className="btn-sm"
+            variant="outline-secondary"
+          >
+            {calendarView === "timeGridWeek" ? "Month View" : "Week View"}
+          </Button>
+          <Button
+            onClick={() => {
               setModalTab("homework");
               setShowAddModal(true);
             }}
@@ -804,26 +922,27 @@ export default function SchedulePage({
       >
         <div className="schedule-calendar calendar-modern">
           <FullCalendar
-            plugins={[timeGridPlugin, interactionPlugin]}
-            initialView="timeGridWeek"
+            ref={calendarRef}
+            plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
+            initialView={calendarView}
             buttonText={{ today: "Today" }}
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: ""
-          }}
-          allDaySlot={false}
-          titleFormat={{
-            day: "2-digit",
-            month: "short",
-            year: "numeric"
-          }}
-          dayHeaderFormat={{
-            weekday: "short",
-            day: "2-digit",
-            month: "short"
-          }}
-          nowIndicator={true}
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: ""
+            }}
+            allDaySlot={false}
+            titleFormat={{
+              day: "2-digit",
+              month: "short",
+              year: "numeric"
+            }}
+            dayHeaderFormat={{
+              weekday: "short",
+              day: "2-digit",
+              month: "short"
+            }}
+            nowIndicator={true}
             droppable={true}
             editable={true}
             eventDurationEditable={true}
