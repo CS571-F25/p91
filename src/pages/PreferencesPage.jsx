@@ -3,6 +3,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import PageHeader from '../components/PageHeader';
+import SegmentedTimeInput from '../components/SegmentedTimeInput';
 
 export default function PreferencesPage({ prefs, setPrefs }) {
   const effectivePrefs = {
@@ -50,33 +51,16 @@ export default function PreferencesPage({ prefs, setPrefs }) {
     return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
   };
 
-  const getDisplayTime = (value) => {
-    if (draftPrefs.timeFormat === "24h") return value || "";
-    const normalized = to24h(value);
-    if (normalized) return format12h(normalized);
-    return value || "";
-  };
-
-  const splitTo12h = (value) => {
-    const normalized = to24h(value);
-    if (!normalized) return { time: "", meridiem: "AM" };
-    const [hStr, mStr] = normalized.split(":");
-    const hNum = parseInt(hStr, 10);
-    const mNum = parseInt(mStr, 10);
-    const meridiem = hNum >= 12 ? "PM" : "AM";
-    const hour12 = ((hNum + 11) % 12) + 1;
-    return {
-      time: `${String(hour12).padStart(2, "0")}:${String(mNum).padStart(2, "0")}`,
-      meridiem
-    };
-  };
-
   const handleTimeChange = (field, meridiem) => (e) => {
     const raw = e.target.value;
-    if (!raw) return;
-    const [hStr, mStr] = raw.split(":");
-    let hours = parseInt(hStr, 10);
-    const minutes = mStr ? parseInt(mStr, 10) : 0;
+    if (!raw) {
+      setDraftPrefs({ ...draftPrefs, [field]: "" });
+      return;
+    }
+    const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10) || 0;
     if (meridiem === "PM" && hours < 12) hours += 12;
     if (meridiem === "AM" && hours === 12) hours = 0;
     const normalized = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
@@ -132,7 +116,7 @@ export default function PreferencesPage({ prefs, setPrefs }) {
               <label className="form-label">Calendar Start</label>
               <Input
                 type="time"
-                value={getDisplayTime(draftPrefs.calendarStart)}
+                value={draftPrefs.calendarStart}
                 onChange={(e) => setDraftPrefs({ ...draftPrefs, calendarStart: e.target.value })}
                 style={{ height: "38px", width: "100%" }}
               />
@@ -141,7 +125,7 @@ export default function PreferencesPage({ prefs, setPrefs }) {
               <label className="form-label">Calendar End</label>
               <Input
                 type="time"
-                value={getDisplayTime(draftPrefs.calendarEnd)}
+                value={draftPrefs.calendarEnd}
                 onChange={(e) => setDraftPrefs({ ...draftPrefs, calendarEnd: e.target.value })}
                 style={{ height: "38px", width: "100%" }}
               />
@@ -149,64 +133,24 @@ export default function PreferencesPage({ prefs, setPrefs }) {
           </div>
         ) : (
           <div className="row g-3">
-            {(() => {
-              const start12 = splitTo12h(draftPrefs.calendarStart);
-              return (
-                <div className="col-md-6">
-                  <label className="form-label">Calendar Start</label>
-                  <div className="row g-2 align-items-stretch">
-                    <div className="col-9">
-                      <Input
-                        type="text"
-                        value={start12.time}
-                        onChange={(e) => handleTimeChange("calendarStart", start12.meridiem)(e)}
-                        style={{ width: "100%", height: "38px" }}
-                      />
-                    </div>
-                    <div className="col-3">
-                      <select
-                        className="form-select w-100"
-                        value={start12.meridiem}
-                        onChange={handleMeridiemChange("calendarStart", start12.time)}
-                        style={{ height: "38px" }}
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-            {(() => {
-              const end12 = splitTo12h(draftPrefs.calendarEnd);
-              return (
-                <div className="col-md-6">
-                  <label className="form-label">Calendar End</label>
-                  <div className="row g-2 align-items-stretch">
-                    <div className="col-9">
-                      <Input
-                        type="text"
-                        value={end12.time}
-                        onChange={(e) => handleTimeChange("calendarEnd", end12.meridiem)(e)}
-                        style={{ width: "100%", height: "38px" }}
-                      />
-                    </div>
-                    <div className="col-3">
-                      <select
-                        className="form-select w-100"
-                        value={end12.meridiem}
-                        onChange={handleMeridiemChange("calendarEnd", end12.time)}
-                        style={{ height: "38px" }}
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            <div className="col-md-6">
+              <label className="form-label">Calendar Start</label>
+              <SegmentedTimeInput
+                value={draftPrefs.calendarStart}
+                onChange={(val) => setDraftPrefs({ ...draftPrefs, calendarStart: val })}
+                label="Calendar Start"
+                id="calendar-start"
+              />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Calendar End</label>
+              <SegmentedTimeInput
+                value={draftPrefs.calendarEnd}
+                onChange={(val) => setDraftPrefs({ ...draftPrefs, calendarEnd: val })}
+                label="Calendar End"
+                id="calendar-end"
+              />
+            </div>
           </div>
         )}
       </Card>

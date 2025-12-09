@@ -9,6 +9,7 @@ import { Modal, Form } from "react-bootstrap";
 import Input from "../components/Input";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import SegmentedTimeInput from "../components/SegmentedTimeInput";
 
 export default function SchedulePage({
   homework,
@@ -37,6 +38,12 @@ export default function SchedulePage({
   const [modalTab, setModalTab] = useState("homework");
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDraggingBlock, setIsDraggingBlock] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({
+    show: false,
+    message: "",
+    onConfirm: null
+  });
+  const [hoverEventId, setHoverEventId] = useState(null);
   const [editForm, setEditForm] = useState({
     id: null,
     name: "",
@@ -69,8 +76,10 @@ export default function SchedulePage({
     startTime: "",
     endTime: "",
     description: "",
+    startDate: "",
     endDate: ""
   });
+  const [editingCommitmentId, setEditingCommitmentId] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
 
   const sidebarRef = useRef(null);
@@ -104,6 +113,21 @@ export default function SchedulePage({
     const totalHours = parseFloat(hw.hours || 0);
     const scheduledHours = getScheduledHours(hw.name);
     return Math.max(0, totalHours - scheduledHours);
+  };
+
+  const formatTimeDisplay = (timeStr) => {
+    if (!timeStr || typeof timeStr !== "string") return "";
+    const parts = timeStr.split(":").map((p) => p.padStart(2, "0"));
+    const hNum = parseInt(parts[0], 10);
+    const m = parts[1] || "00";
+    if (Number.isNaN(hNum)) return timeStr;
+    if (prefs?.timeFormat === "24h") {
+      const hh = String(Math.max(0, Math.min(23, hNum))).padStart(2, "0");
+      return `${hh}:${m}`;
+    }
+    const suffix = hNum >= 12 ? "PM" : "AM";
+    const hour12 = ((hNum + 11) % 12) + 1;
+    return `${hour12}:${m} ${suffix}`;
   };
 
   const formatDateDisplay = (dateStr) => {
@@ -178,10 +202,15 @@ export default function SchedulePage({
       daysOfWeek: [dayToIndex[c.day]],
       startTime: formatTime(c.startTime),
       endTime: formatTime(c.endTime),
+      startRecur: c.startDate ? `${c.startDate}T00:00:00` : undefined,
       endRecur: c.endDate ? `${c.endDate}T23:59:59` : undefined,
       backgroundColor: "#6c757d",
       borderColor: "#495057",
-      editable: false
+      editable: false,
+      extendedProps: {
+        commitmentId: c.id,
+        description: c.description || ""
+      }
     }));
 
   const events = [...homeworkEvents, ...commitmentEvents];
@@ -236,23 +265,44 @@ export default function SchedulePage({
     )
       return;
 
-    const newCommitments = commitmentForm.days.map((day) => ({
-      id: Date.now() + Math.random(),
-      day,
-      startTime: commitmentForm.startTime,
-      endTime: commitmentForm.endTime,
-      description: commitmentForm.description,
-      endDate: commitmentForm.endDate || null
-    }));
+    if (editingCommitmentId) {
+      setCommitments?.((prev) =>
+        prev.map((c) =>
+          c.id === editingCommitmentId
+            ? {
+                ...c,
+                day: commitmentForm.days[0] || c.day,
+                startTime: commitmentForm.startTime,
+                endTime: commitmentForm.endTime,
+                description: commitmentForm.description,
+                startDate: commitmentForm.startDate || null,
+                endDate: commitmentForm.endDate || null
+              }
+            : c
+        )
+      );
+    } else {
+      const newCommitments = commitmentForm.days.map((day) => ({
+        id: Date.now() + Math.random(),
+        day,
+        startTime: commitmentForm.startTime,
+        endTime: commitmentForm.endTime,
+        description: commitmentForm.description,
+        startDate: commitmentForm.startDate || null,
+        endDate: commitmentForm.endDate || null
+      }));
+      setCommitments?.((prev) => [...prev, ...newCommitments]);
+    }
 
-    setCommitments?.((prev) => [...prev, ...newCommitments]);
     setCommitmentForm({
       days: [],
       startTime: "",
       endTime: "",
       description: "",
+      startDate: "",
       endDate: ""
     });
+    setEditingCommitmentId(null);
     setShowAddModal(false);
   };
 
@@ -270,9 +320,43 @@ export default function SchedulePage({
   };
 
   const deleteHomeworkFromSidebar = (hw) => {
-    if (!window.confirm(`Delete "${hw.name}" and its scheduled blocks?`)) return;
-    setHomework?.((prev) => prev.filter((h) => h.id !== hw.id));
-    setSchedule?.((prev) => prev.filter((ev) => ev.homework !== hw.name));
+    setConfirmConfig({
+      show: true,
+      message: `Delete "${hw.name}" and its scheduled blocks?`,
+      onConfirm: () => {
+        setHomework?.((prev) => prev.filter((h) => h.id !== hw.id));
+        setSchedule?.((prev) => prev.filter((ev) => ev.homework !== hw.name));
+      }
+    });
+  };
+
+  const deleteCommitment = (commitmentId) => {
+    setConfirmConfig({
+      show: true,
+      message: "Delete this commitment?",
+      onConfirm: () => {
+        setCommitments?.((prev) => prev.filter((c) => c.id !== commitmentId));
+      }
+    });
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setEditingCommitmentId(null);
+  };
+
+  const startEditCommitment = (commitment) => {
+    setEditingCommitmentId(commitment.id);
+    setModalTab("commitment");
+    setShowAddModal(true);
+    setCommitmentForm({
+      days: commitment.day ? [commitment.day] : [],
+      startTime: commitment.startTime || "",
+      endTime: commitment.endTime || "",
+      description: commitment.description || "",
+      startDate: commitment.startDate || "",
+      endDate: commitment.endDate || ""
+    });
   };
 
   const getDeadlineForHomework = (homeworkName) => {
@@ -524,7 +608,11 @@ export default function SchedulePage({
   };
 
   const handleDeleteEvent = (event) => {
-    if (event.id.startsWith("commit-")) return;
+    if (event.id.startsWith("commit-")) {
+      const cid = event.extendedProps?.commitmentId;
+      deleteCommitment(cid || event.id.replace("commit-", ""));
+      return;
+    }
 
     event.remove();
 
@@ -537,6 +625,7 @@ export default function SchedulePage({
     if (info.event.display === "background") return null;
 
     const isCommitment = info.event.id.startsWith("commit-");
+    const isHovered = hoverEventId === info.event.id;
     if (info.event.classNames?.includes("deadline-line-bg")) {
       return (
         <div className="deadline-line-marker" aria-label="Deadline boundary" />
@@ -549,26 +638,59 @@ export default function SchedulePage({
           !isCommitment ? "resizable-event" : ""
         }`}
         style={{ padding: "4px 6px" }}
+        onMouseEnter={() => setHoverEventId(info.event.id)}
+        onMouseLeave={() => setHoverEventId(null)}
       >
         {!isCommitment && (
           <span className="resize-arrow top" aria-hidden="true" />
         )}
 
         <div className="d-flex justify-content-between align-items-center w-100">
-          <span>{info.event.title}</span>
+          <span className="text-truncate" style={{ maxWidth: "60%" }}>
+            {info.event.title}
+          </span>
 
-          {!isCommitment && (
-            <span
-              className="text-danger ms-2"
-              style={{ cursor: "pointer", fontSize: "1.2rem" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteEvent(info.event);
-              }}
-            >
-              🗑️
-            </span>
-          )}
+          <div className="d-flex align-items-center gap-2">
+            {isHovered && !isCommitment && (
+              <span
+                className="text-muted"
+                style={{ cursor: "pointer", fontSize: "1.2rem" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const hw = homework.find((h) => h.name === info.event.title);
+                  if (hw) startEditHomework(hw);
+                }}
+              >
+                ⋯
+              </span>
+            )}
+            {isHovered && isCommitment && (
+              <span
+                className="text-muted"
+                style={{ cursor: "pointer", fontSize: "1.2rem" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const cid = info.event.extendedProps?.commitmentId;
+                  const commitObj = (commitments || []).find((c) => c.id === cid);
+                  if (commitObj) startEditCommitment(commitObj);
+                }}
+              >
+                ⋯
+              </span>
+            )}
+            {isHovered && (
+              <span
+                className="text-danger"
+                style={{ cursor: "pointer", fontSize: "1.2rem" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteEvent(info.event);
+                }}
+              >
+                🗑️
+              </span>
+            )}
+          </div>
         </div>
 
         {!isCommitment && (
@@ -776,13 +898,14 @@ export default function SchedulePage({
       <div
         className="d-flex justify-content-between align-items-center mb-3 schedule-toolbar"
         style={{ paddingLeft: "25%" }}
-      >
-        <CalendarLegend direction="row" className="mt-0" hideLabel />
-        <div className="d-flex gap-2 align-items-center">
-          <Button
-            onClick={() => {
+        >
+          <CalendarLegend direction="row" className="mt-0" hideLabel />
+          <div className="d-flex gap-2 align-items-center">
+            <Button
+              onClick={() => {
               setModalTab("homework");
               setShowAddModal(true);
+              setEditingCommitmentId(null);
             }}
             className="btn-sm"
           >
@@ -792,6 +915,7 @@ export default function SchedulePage({
             onClick={() => {
               setModalTab("commitment");
               setShowAddModal(true);
+              setEditingCommitmentId(null);
             }}
             className="btn-sm"
             variant="outline-primary"
@@ -912,6 +1036,8 @@ export default function SchedulePage({
               );
             })}
         </div>
+
+        <div className="mt-3" />
       </div>
 
       <div
@@ -1030,13 +1156,13 @@ export default function SchedulePage({
 
     <Modal
       show={showAddModal}
-      onHide={() => setShowAddModal(false)}
+      onHide={handleCloseAddModal}
       size="lg"
       centered
     >
       <Modal.Header closeButton>
         <Modal.Title>
-          {modalTab === "homework" ? "Add Homework" : "Add Commitment"}
+          {modalTab === "homework" ? "Add Homework" : editingCommitmentId ? "Edit Commitment" : "Add Commitment"}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -1173,29 +1299,67 @@ export default function SchedulePage({
                 </div>
               </Form.Group>
 
-              <Input
-                label="Start Time"
-                type="time"
-                value={commitmentForm.startTime}
-                onChange={(e) =>
-                  setCommitmentForm({ ...commitmentForm, startTime: e.target.value })
-                }
-              />
+              {prefs?.timeFormat === "12h" ? (
+                <>
+                  <div className="mb-3">
+                    <label className="form-label">Start Time</label>
+                    <SegmentedTimeInput
+                      value={commitmentForm.startTime}
+                      onChange={(val) =>
+                        setCommitmentForm({ ...commitmentForm, startTime: val })
+                      }
+                      label="Start Time"
+                      id="commit-start"
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">End Time</label>
+                    <SegmentedTimeInput
+                      value={commitmentForm.endTime}
+                      onChange={(val) =>
+                        setCommitmentForm({ ...commitmentForm, endTime: val })
+                      }
+                      label="End Time"
+                      id="commit-end"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Input
+                    label="Start Time"
+                    type="time"
+                    value={commitmentForm.startTime}
+                    onChange={(e) =>
+                      setCommitmentForm({ ...commitmentForm, startTime: e.target.value })
+                    }
+                  />
 
-              <Input
-                label="End Time"
-                type="time"
-                value={commitmentForm.endTime}
-                onChange={(e) =>
-                  setCommitmentForm({ ...commitmentForm, endTime: e.target.value })
-                }
-              />
+                  <Input
+                    label="End Time"
+                    type="time"
+                    value={commitmentForm.endTime}
+                    onChange={(e) =>
+                      setCommitmentForm({ ...commitmentForm, endTime: e.target.value })
+                    }
+                  />
+                </>
+              )}
 
               <Input
                 label="Description (optional)"
                 value={commitmentForm.description}
                 onChange={(e) =>
                   setCommitmentForm({ ...commitmentForm, description: e.target.value })
+                }
+              />
+
+              <Input
+                label="Start Date (optional)"
+                type="date"
+                value={commitmentForm.startDate}
+                onChange={(e) =>
+                  setCommitmentForm({ ...commitmentForm, startDate: e.target.value })
                 }
               />
 
@@ -1411,6 +1575,33 @@ export default function SchedulePage({
         </Button>
         <Button onClick={handleExportCalendar} disabled={!canExport}>
           Export .ics
+        </Button>
+      </Modal.Footer>
+    </Modal>
+    <Modal
+      show={confirmConfig.show}
+      onHide={() => setConfirmConfig({ show: false, message: "", onConfirm: null })}
+      centered
+    >
+      <Modal.Header closeButton>
+        <Modal.Title>Confirm</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>{confirmConfig.message || "Are you sure?"}</Modal.Body>
+      <Modal.Footer>
+        <Button
+          variant="secondary"
+          onClick={() => setConfirmConfig({ show: false, message: "", onConfirm: null })}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="danger"
+          onClick={() => {
+            confirmConfig.onConfirm?.();
+            setConfirmConfig({ show: false, message: "", onConfirm: null });
+          }}
+        >
+          Confirm
         </Button>
       </Modal.Footer>
     </Modal>
