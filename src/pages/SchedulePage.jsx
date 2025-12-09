@@ -95,6 +95,24 @@ export default function SchedulePage({
     return () => window.removeEventListener("mouseup", handleMouseUp);
   }, []);
 
+  // Ensure all schedule entries have stable ids for calendar operations
+  useEffect(() => {
+    if (!setSchedule) return;
+    const missingId = schedule.some((ev) => !ev?.id);
+    if (missingId) {
+      setSchedule((prev) =>
+        prev.map((ev) =>
+          ev?.id
+            ? ev
+            : {
+                ...ev,
+                id: Date.now() + Math.random()
+              }
+        )
+      );
+    }
+  }, [schedule, setSchedule]);
+
   const formatTime = (t) => (t && t.length === 5 ? t : null);
   const getEventHours = (ev) => {
     if (!ev.start || !ev.end) return 0;
@@ -165,15 +183,19 @@ export default function SchedulePage({
     Saturday: 6
   };
 
-  const homeworkEvents = schedule.map((s) => {
+  const homeworkEvents = schedule.map((s, idx) => {
     const homeworkItem = homework.find((h) => h.name === s.homework);
+    const eventId =
+      s.id !== undefined && s.id !== null
+        ? s.id.toString()
+        : `sched-${idx}`;
     const color =
       s.color ||
       homeworkItem?.color ||
       defaultColor;
 
     return {
-      id: (s.id ?? Date.now() + Math.random()).toString(),
+      id: eventId,
       title: s.homework,
       start: s.start,
       end: s.end,
@@ -898,9 +920,9 @@ export default function SchedulePage({
       <div
         className="d-flex justify-content-between align-items-center mb-3 schedule-toolbar"
         style={{ paddingLeft: "25%" }}
-        >
-          <CalendarLegend direction="row" className="mt-0" hideLabel />
-          <div className="d-flex gap-2 align-items-center">
+      >
+        <CalendarLegend direction="row" className="mt-0" hideLabel />
+        <div className="d-flex gap-2 align-items-center">
             <Button
               onClick={() => {
               setModalTab("homework");
@@ -930,6 +952,9 @@ export default function SchedulePage({
             Export / Subscribe
           </Button>
         </div>
+      </div>
+      <div className="text-muted small mb-2" style={{ paddingLeft: "25%" }}>
+        Hover calendar blocks to edit (⋯) or delete (🗑️).
       </div>
       <div
         className="row"
@@ -1355,7 +1380,7 @@ export default function SchedulePage({
               />
 
               <Input
-                label="Start Date (optional)"
+                label="Start Date"
                 type="date"
                 value={commitmentForm.startDate}
                 onChange={(e) =>
@@ -1364,7 +1389,7 @@ export default function SchedulePage({
               />
 
               <Input
-                label="End Date (optional)"
+                label="End Date"
                 type="date"
                 value={commitmentForm.endDate}
                 onChange={(e) =>
@@ -1383,6 +1408,11 @@ export default function SchedulePage({
               >
                 Add Commitment
               </Button>
+              {commitmentForm.days.length === 0 || !commitmentForm.startTime || !commitmentForm.endTime ? (
+                <div className="text-danger small mt-1">
+                  Select at least one day and provide start/end times to add.
+                </div>
+              ) : null}
             </div>
           </div>
         )}
